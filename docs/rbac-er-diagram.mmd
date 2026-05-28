@@ -1,0 +1,141 @@
+erDiagram
+    SYS_DEPT {
+        bigint id PK
+        bigint parent_id FK
+        varchar dept_code UK
+        varchar dept_name
+        bigint leader_user_id FK
+        int sort_no
+        smallint status
+    }
+
+    SYS_USER {
+        bigint id PK
+        varchar username UK
+        varchar password_hash
+        varchar nickname
+        varchar real_name
+        varchar mobile UK
+        varchar email UK
+        bigint dept_id FK
+        boolean is_super_admin
+        smallint status
+    }
+
+    SYS_ROLE {
+        bigint id PK
+        varchar role_code UK
+        varchar role_name
+        varchar data_scope
+        boolean is_builtin
+        smallint status
+    }
+
+    SYS_PERMISSION {
+        bigint id PK
+        varchar permission_code UK
+        varchar permission_name
+        varchar permission_type
+        varchar http_method
+        varchar api_path
+        smallint status
+    }
+
+    SYS_MENU {
+        bigint id PK
+        bigint parent_id FK
+        varchar menu_name
+        varchar menu_type
+        varchar route_name
+        varchar route_path
+        varchar component_path
+        varchar permission_code
+        smallint status
+    }
+
+    SYS_USER_ROLE {
+        bigint id PK
+        bigint user_id FK
+        bigint role_id FK
+    }
+
+    SYS_ROLE_PERMISSION {
+        bigint id PK
+        bigint role_id FK
+        bigint permission_id FK
+    }
+
+    SYS_POST {
+        bigint id PK
+        varchar post_code UK
+        varchar post_name
+        smallint status
+    }
+
+    SYS_USER_POST {
+        bigint id PK
+        bigint user_id FK
+        bigint post_id FK
+    }
+
+    SYS_DICT_TYPE {
+        bigint id PK
+        varchar dict_code UK
+        varchar dict_name
+        smallint status
+    }
+
+    SYS_DICT_ITEM {
+        bigint id PK
+        bigint dict_type_id FK
+        varchar item_label
+        varchar item_value
+        boolean is_default
+        smallint status
+    }
+
+    SYS_CONFIG {
+        bigint id PK
+        varchar config_key UK
+        varchar config_name
+        text config_value
+        varchar value_type
+        smallint status
+    }
+
+    SYS_LOGIN_LOG {
+        bigint id PK
+        varchar username
+        smallint login_status
+        varchar login_ip
+        timestamptz login_at
+    }
+
+    SYS_OPERATION_LOG {
+        bigint id PK
+        bigint operator_user_id
+        varchar permission_code
+        varchar request_path
+        smallint operation_status
+        timestamptz operated_at
+    }
+
+    SYS_DEPT ||--o{ SYS_DEPT : parent_child
+    SYS_DEPT ||--o{ SYS_USER : contains
+    SYS_USER o|--|| SYS_DEPT : leads
+
+    SYS_USER ||--o{ SYS_USER_ROLE : assigned
+    SYS_ROLE ||--o{ SYS_USER_ROLE : includes
+
+    SYS_ROLE ||--o{ SYS_ROLE_PERMISSION : grants
+    SYS_PERMISSION ||--o{ SYS_ROLE_PERMISSION : bound
+
+    SYS_POST ||--o{ SYS_USER_POST : assigned
+    SYS_USER ||--o{ SYS_USER_POST : owns
+
+    SYS_DICT_TYPE ||--o{ SYS_DICT_ITEM : contains
+
+    SYS_MENU }o..o| SYS_PERMISSION : maps_by_permission_code
+    SYS_USER ||..o{ SYS_LOGIN_LOG : logs_by_username
+    SYS_USER ||..o{ SYS_OPERATION_LOG : operates
+    SYS_PERMISSION ||..o{ SYS_OPERATION_LOG : audited_by_code

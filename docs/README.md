@@ -8,6 +8,7 @@
 2. [依赖选型与版本建议](./dependency-selection.md)
 3. [项目初始化清单](./project-init-checklist.md)
 4. [Docker 容器化说明](./dockerization.md)
+5. [后端初始化计划](./backend-init-plan.md)
 
 ## 2. 图与模型
 
@@ -26,4 +27,5 @@
 1. 先看 [需求分析与数据库设计](./rbac-system-requirements.md)
 2. 再看 [依赖选型与版本建议](./dependency-selection.md)
 3. 然后看 [项目初始化清单](./project-init-checklist.md)
-4. 最后结合 [Docker 容器化说明](./dockerization.md) 落地环境
+4. 再看 [后端初始化计划](./backend-init-plan.md)
+5. 最后结合 [Docker 容器化说明](./dockerization.md) 落地环境

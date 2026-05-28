@@ -54,8 +54,9 @@ r-admin/
 2. [依赖选型](docs/dependency-selection.md)
 3. [项目初始化清单](docs/project-init-checklist.md)
 4. [容器化说明](docs/dockerization.md)
-5. [E-R 图 SVG](docs/rbac-er-diagram.svg)
-6. [E-R 图 Mermaid](docs/rbac-er-diagram.mmd)
+5. [后端初始化计划](docs/backend-init-plan.md)
+6. [E-R 图 SVG](docs/rbac-er-diagram.svg)
+7. [E-R 图 Mermaid](docs/rbac-er-diagram.mmd)
 
 ## 4. 数据库脚本
 
@@ -94,13 +95,13 @@ r-admin/
 6. 依赖选型与版本建议
 7. Docker 容器化骨架
 8. Git 仓库初始化与基础忽略规则
+9. Rust 后端最小骨架初始化
 
 待完成：
 
-1. 按 `lhui-dev/rct` 初始化 `backend/`
-2. 初始化 `frontend/`
-3. 打通前后端最小运行闭环
-4. 接入认证、用户、角色、菜单、权限模块
+1. 初始化 `frontend/`
+2. 打通前后端最小运行闭环
+3. 接入认证、用户、角色、菜单、权限模块
 
 ## 7. 推荐初始化顺序
 

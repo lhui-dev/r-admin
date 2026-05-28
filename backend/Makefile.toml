@@ -1,0 +1,33 @@
+[tasks.format]
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--", "--emit=files"]
+
+[tasks.deny]
+install_crate = "cargo-deny"
+command = "cargo"
+args = ["deny", "check"]
+
+[tasks.typos]
+install_crate = "typos-cli"
+command = "typos"
+dependencies = ["deny"]
+
+[tasks.check]
+command = "cargo"
+args = ["check", "--all"]
+dependencies = ["typos"]
+
+[tasks.clippy]
+command = "cargo"
+args = ["clippy", "--all-features", "--tests", "--benches", "--", "-D", "warnings"]
+dependencies = ["check"]
+
+[tasks.test]
+install_crate = "cargo-nextest"
+command = "cargo"
+args = ["nextest", "run"]
+dependencies = ["clippy"]
+
+[tasks.do]
+dependencies = ["format", "deny", "typos", "check", "clippy", "test"]

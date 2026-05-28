@@ -9,6 +9,7 @@
 3. [项目初始化清单](./project-init-checklist.md)
 4. [Docker 容器化说明](./dockerization.md)
 5. [后端初始化计划](./backend-init-plan.md)
+6. [GitHub Actions 后端 CI](../.github/workflows/backend-ci.yml)
 
 ## 2. 图与模型
 
@@ -21,6 +22,7 @@
 2. [种子数据脚本](../sql/seed-data.sql)
 3. [主容器编排](../docker-compose.yml)
 4. [数据库管理辅助编排](../docker/docker-compose.pg-admin.yaml)
+5. [后端 CI Workflow](../.github/workflows/backend-ci.yml)
 
 ## 4. 推荐阅读顺序
 

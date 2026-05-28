@@ -96,12 +96,14 @@ r-admin/
 7. Docker 容器化骨架
 8. Git 仓库初始化与基础忽略规则
 9. Rust 后端最小骨架初始化
+10. 第一版 GitHub Actions 后端 CI
 
 待完成：
 
 1. 初始化 `frontend/`
 2. 打通前后端最小运行闭环
 3. 接入认证、用户、角色、菜单、权限模块
+4. 在 CI 稳定后将检查项纳入 `main` 分支保护
 
 ## 7. 推荐初始化顺序
 
@@ -114,3 +116,15 @@ r-admin/
 ## 8. 备注
 
 这个仓库当前适合作为“项目基础骨架初始化”的第一次提交。
+
+## 9. CI 说明
+
+当前已新增第一版 GitHub Actions：
+
+1. [backend-ci.yml](.github/workflows/backend-ci.yml)
+
+当前策略：
+
+1. 第一版 CI 仅覆盖后端 `cargo check`
+2. 先让 CI 稳定运行
+3. 后续再把 `backend-check` 加入 `main` 分支保护的 required checks

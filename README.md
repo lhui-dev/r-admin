@@ -56,9 +56,11 @@ r-admin/
 4. [容器化说明](docs/dockerization.md)
 5. [后端初始化计划](docs/backend-init-plan.md)
 6. [前端初始化计划](docs/frontend-init-plan.md)
-7. [CI 工作流说明](docs/ci-workflows.md)
-8. [E-R 图 SVG](docs/rbac-er-diagram.svg)
-9. [E-R 图 Mermaid](docs/rbac-er-diagram.mmd)
+7. [认证初始化计划](docs/auth-init-plan.md)
+8. [认证初始化执行清单](docs/auth-init-checklist.md)
+9. [CI 工作流说明](docs/ci-workflows.md)
+10. [E-R 图 SVG](docs/rbac-er-diagram.svg)
+11. [E-R 图 Mermaid](docs/rbac-er-diagram.mmd)
 
 ## 4. 数据库脚本
 

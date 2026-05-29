@@ -1,0 +1,77 @@
+:root {
+  color-scheme: light;
+  --app-bg: #ffffff;
+  --app-shell: #ffffff;
+  --app-surface: #ffffff;
+  --app-surface-strong: #ffffff;
+  --app-surface-soft: #f8fafc;
+  --app-border: #e7edf4;
+  --app-border-strong: #d8e0ea;
+  --app-text: #111827;
+  --app-text-soft: #667085;
+  --app-text-faint: #9aa4b2;
+  --app-primary: #1f7aff;
+  --app-primary-soft: #eaf3ff;
+  --app-success: #16a34a;
+  --app-warning: #f59e0b;
+  --app-danger: #ef4444;
+  --app-shadow: none;
+  --app-radius-xl: 24px;
+  --app-radius-lg: 18px;
+  --app-radius-md: 14px;
+  font-family:
+    'Segoe UI',
+    'PingFang SC',
+    'Hiragino Sans GB',
+    sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --app-bg:
+    radial-gradient(circle at top left, rgba(67, 97, 238, 0.18) 0%, transparent 28%),
+    radial-gradient(circle at top right, rgba(16, 185, 129, 0.14) 0%, transparent 22%),
+    linear-gradient(180deg, #09111f 0%, #111c2d 100%);
+  --app-shell: rgba(8, 15, 28, 0.72);
+  --app-surface: rgba(15, 23, 42, 0.84);
+  --app-surface-strong: rgba(17, 24, 39, 0.94);
+  --app-surface-soft: rgba(30, 41, 59, 0.78);
+  --app-border: rgba(148, 163, 184, 0.18);
+  --app-border-strong: rgba(148, 163, 184, 0.28);
+  --app-text: #e5edf9;
+  --app-text-soft: #b6c2d3;
+  --app-text-faint: #7f8ca4;
+  --app-primary: #6aa3ff;
+  --app-primary-soft: rgba(106, 163, 255, 0.16);
+  --app-success: #34d399;
+  --app-warning: #fbbf24;
+  --app-danger: #fb7185;
+  --app-shadow: 0 28px 90px rgba(2, 6, 23, 0.42);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--app-bg);
+  color: var(--app-text);
+  transition:
+    background 0.25s ease,
+    color 0.25s ease;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+#app {
+  min-height: 100vh;
+}

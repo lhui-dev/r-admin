@@ -10,7 +10,9 @@
 4. [Docker 容器化说明](./dockerization.md)
 5. [后端初始化计划](./backend-init-plan.md)
 6. [前端初始化计划](./frontend-init-plan.md)
-7. [CI 工作流说明](./ci-workflows.md)
+7. [认证初始化计划](./auth-init-plan.md)
+8. [认证初始化执行清单](./auth-init-checklist.md)
+9. [CI 工作流说明](./ci-workflows.md)
 
 ## 2. 图与模型
 
@@ -33,5 +35,7 @@
 3. 然后看 [项目初始化清单](./project-init-checklist.md)
 4. 再看 [后端初始化计划](./backend-init-plan.md)
 5. 再看 [前端初始化计划](./frontend-init-plan.md)
-6. 再看 [CI 工作流说明](./ci-workflows.md)
-7. 最后结合 [Docker 容器化说明](./dockerization.md) 落地环境
+6. 再看 [认证初始化计划](./auth-init-plan.md)
+7. 再看 [认证初始化执行清单](./auth-init-checklist.md)
+8. 再看 [CI 工作流说明](./ci-workflows.md)
+9. 最后结合 [Docker 容器化说明](./dockerization.md) 落地环境

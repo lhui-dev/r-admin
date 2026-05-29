@@ -9,8 +9,8 @@
 3. [项目初始化清单](./project-init-checklist.md)
 4. [Docker 容器化说明](./dockerization.md)
 5. [后端初始化计划](./backend-init-plan.md)
-6. [GitHub Actions 后端 CI](../.github/workflows/backend-ci.yml)
-7. [前端初始化计划](./frontend-init-plan.md)
+6. [前端初始化计划](./frontend-init-plan.md)
+7. [CI 工作流说明](./ci-workflows.md)
 
 ## 2. 图与模型
 
@@ -24,6 +24,7 @@
 3. [主容器编排](../docker-compose.yml)
 4. [数据库管理辅助编排](../docker/docker-compose.pg-admin.yaml)
 5. [后端 CI Workflow](../.github/workflows/backend-ci.yml)
+6. [前端 CI Workflow](../.github/workflows/frontend-ci.yml)
 
 ## 4. 推荐阅读顺序
 
@@ -32,4 +33,5 @@
 3. 然后看 [项目初始化清单](./project-init-checklist.md)
 4. 再看 [后端初始化计划](./backend-init-plan.md)
 5. 再看 [前端初始化计划](./frontend-init-plan.md)
-6. 最后结合 [Docker 容器化说明](./dockerization.md) 落地环境
+6. 再看 [CI 工作流说明](./ci-workflows.md)
+7. 最后结合 [Docker 容器化说明](./dockerization.md) 落地环境

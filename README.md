@@ -56,8 +56,9 @@ r-admin/
 4. [容器化说明](docs/dockerization.md)
 5. [后端初始化计划](docs/backend-init-plan.md)
 6. [前端初始化计划](docs/frontend-init-plan.md)
-7. [E-R 图 SVG](docs/rbac-er-diagram.svg)
-8. [E-R 图 Mermaid](docs/rbac-er-diagram.mmd)
+7. [CI 工作流说明](docs/ci-workflows.md)
+8. [E-R 图 SVG](docs/rbac-er-diagram.svg)
+9. [E-R 图 Mermaid](docs/rbac-er-diagram.mmd)
 
 ## 4. 数据库脚本
 
@@ -99,6 +100,7 @@ r-admin/
 9. Rust 后端最小骨架初始化
 10. 第一版 GitHub Actions 后端 CI
 11. Vue3 前端最小骨架初始化
+12. 第一版 GitHub Actions 前端 CI
 
 待完成：
 
@@ -124,9 +126,12 @@ r-admin/
 当前已新增第一版 GitHub Actions：
 
 1. [backend-ci.yml](.github/workflows/backend-ci.yml)
+2. [frontend-ci.yml](.github/workflows/frontend-ci.yml)
+3. [CI 工作流说明](docs/ci-workflows.md)
 
 当前策略：
 
-1. 第一版 CI 仅覆盖后端 `cargo check`
-2. 先让 CI 稳定运行
-3. 后续再把 `backend-check` 加入 `main` 分支保护的 required checks
+1. 后端 CI 当前覆盖 `cargo check`
+2. 前端 CI 当前覆盖 `npm ci`、`npm run typecheck`、`npm run build`
+3. 先让 CI 稳定运行
+4. 后续再把关键检查加入 `main` 分支保护的 required checks

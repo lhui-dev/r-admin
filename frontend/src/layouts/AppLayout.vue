@@ -18,8 +18,11 @@ import { ElMessage } from 'element-plus'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { useAuthStore } from '@/stores/auth'
+
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
 type NavItem = {
   key: string
@@ -47,6 +50,7 @@ const topNavItems: NavItem[] = [
   { key: 'organization', label: '组织架构' },
   { key: 'audit', label: '审计中心' },
   { key: 'settings', label: '系统配置', path: '/system' },
+  { key: 'profile', label: '个人中心', path: '/profile' },
 ]
 
 const sidebarSections: NavSection[] = [
@@ -75,15 +79,27 @@ const sidebarSections: NavSection[] = [
     items: [
       { key: 'departments', label: '部门管理', icon: CreditCard },
       { key: 'audit-logs', label: '审计日志', icon: Wallet },
-      { key: 'profile', label: '系统设置', icon: Setting, path: '/system' },
+      { key: 'system', label: '系统设置', icon: Setting, path: '/system' },
+    ],
+  },
+  {
+    title: '个人中心',
+    items: [
+      { key: 'profile', label: '个人信息', icon: User, path: '/profile' },
     ],
   },
 ]
 
 const activePath = computed(() => route.path)
+const userDisplayName = computed(() => authStore.displayName)
+const userAvatarText = computed(() => authStore.avatarText)
 const activeTopNavKey = computed(() => {
   if (route.path.startsWith('/system')) {
     return 'settings'
+  }
+
+  if (route.path.startsWith('/profile')) {
+    return 'profile'
   }
 
   if (route.path.startsWith('/dashboard')) {
@@ -102,15 +118,21 @@ function handleRoute(path?: string, description?: string) {
   ElMessage.info(description ?? '功能建设中。')
 }
 
-function handleUserCommand(command: string) {
+async function handleUserCommand(command: string) {
   if (command === 'profile') {
-    void router.push('/system')
+    void router.push('/profile')
+    return
+  }
+
+  if (command === 'logout') {
+    await authStore.logout()
+    ElMessage.success('已退出登录。')
+    await router.replace('/login')
     return
   }
 
   const messageMap: Record<string, string> = {
     language: '语言切换稍后接入。',
-    logout: '退出登录流程建设中。',
   }
 
   ElMessage.info(messageMap[command] ?? '功能规划中。')
@@ -212,7 +234,7 @@ function handleContentScroll(event: Event) {
             type="button"
             class="app-layout__toolbar-button"
           >
-            <span class="app-layout__toolbar-glyph">A</span>
+            <span class="app-layout__toolbar-glyph">{{ userAvatarText.slice(0, 1) }}</span>
           </button>
 
           <template #dropdown>
@@ -231,8 +253,8 @@ function handleContentScroll(event: Event) {
             type="button"
             class="app-layout__user"
           >
-            <span class="app-layout__user-avatar">LH</span>
-            <span class="app-layout__user-name">lhui-dev</span>
+            <span class="app-layout__user-avatar">{{ userAvatarText }}</span>
+            <span class="app-layout__user-name">{{ userDisplayName }}</span>
             <el-icon><ArrowDown /></el-icon>
           </button>
 

@@ -1,3 +1,5 @@
+/// <reference types="vitest/config" />
+
 import path from 'node:path'
 
 import { defineConfig, loadEnv } from 'vite'
@@ -21,6 +23,10 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
       },
+    },
+    test: {
+      environment: 'jsdom',
+      globals: true,
     },
   }
 })

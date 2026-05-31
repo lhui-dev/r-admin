@@ -12,12 +12,14 @@
 6. [前端初始化计划](./frontend-init-plan.md)
 7. [认证初始化计划](./auth-init-plan.md)
 8. [认证初始化执行清单](./auth-init-checklist.md)
-9. [CI 工作流说明](./ci-workflows.md)
+9. [APIFox 认证调试说明](./apifox-auth-debug.md)
+10. [CI 工作流说明](./ci-workflows.md)
 
 ## 2. 图与模型
 
 1. [E-R 图 SVG](./rbac-er-diagram.svg)
 2. [E-R 图 Mermaid 源码](./rbac-er-diagram.mmd)
+3. [APIFox OpenAPI 导入文件](./apifox-auth.openapi.json)
 
 ## 3. 相关脚本入口
 
@@ -37,5 +39,6 @@
 5. 再看 [前端初始化计划](./frontend-init-plan.md)
 6. 再看 [认证初始化计划](./auth-init-plan.md)
 7. 再看 [认证初始化执行清单](./auth-init-checklist.md)
-8. 再看 [CI 工作流说明](./ci-workflows.md)
-9. 最后结合 [Docker 容器化说明](./dockerization.md) 落地环境
+8. 再看 [APIFox 认证调试说明](./apifox-auth-debug.md)
+9. 再看 [CI 工作流说明](./ci-workflows.md)
+10. 最后结合 [Docker 容器化说明](./dockerization.md) 落地环境

@@ -58,9 +58,11 @@ r-admin/
 6. [前端初始化计划](docs/frontend-init-plan.md)
 7. [认证初始化计划](docs/auth-init-plan.md)
 8. [认证初始化执行清单](docs/auth-init-checklist.md)
-9. [CI 工作流说明](docs/ci-workflows.md)
-10. [E-R 图 SVG](docs/rbac-er-diagram.svg)
-11. [E-R 图 Mermaid](docs/rbac-er-diagram.mmd)
+9. [APIFox 认证调试说明](docs/apifox-auth-debug.md)
+10. [CI 工作流说明](docs/ci-workflows.md)
+11. [APIFox OpenAPI 导入文件](docs/apifox-auth.openapi.json)
+12. [E-R 图 SVG](docs/rbac-er-diagram.svg)
+13. [E-R 图 Mermaid](docs/rbac-er-diagram.mmd)
 
 ## 4. 数据库脚本
 
@@ -69,8 +71,8 @@ r-admin/
 
 说明：
 
-1. 种子数据中的 `admin` 密码哈希目前仍是占位值
-2. 真正接入登录前，需要按 Rust 后端实际密码算法替换
+1. 种子数据中的 `admin` 默认密码已经改为 `Admin@123456` 对应的真实 Argon2 哈希
+2. 如果数据库之前导入过旧版种子，需要重新执行种子 SQL 或单独更新管理员密码哈希
 
 ## 5. Docker 入口
 

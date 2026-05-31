@@ -1,11 +1,8 @@
-use axum::{extract::State, Json};
+use axum::{Json, extract::State};
 use serde::Serialize;
 use sqlx::query_scalar;
 
-use crate::{
-    common::response::ApiResponse,
-    state::AppState,
-};
+use crate::{common::response::ApiResponse, state::AppState};
 
 #[derive(Debug, Serialize)]
 pub struct HealthPayload {

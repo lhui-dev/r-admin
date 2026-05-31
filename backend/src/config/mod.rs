@@ -12,6 +12,8 @@ pub struct Settings {
     pub database: DatabaseSettings,
     #[serde(default)]
     pub log: LogSettings,
+    #[serde(default)]
+    pub jwt: JwtSettings,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -39,6 +41,14 @@ pub struct LogSettings {
     pub level: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct JwtSettings {
+    #[serde(default = "default_jwt_secret")]
+    pub secret: String,
+    #[serde(default = "default_jwt_expires_in")]
+    pub expires_in: u64,
+}
+
 impl Settings {
     pub fn load() -> anyhow::Result<Self> {
         let builder = config::Config::builder()
@@ -46,6 +56,8 @@ impl Settings {
             .set_default("server.host", default_server_host().to_string())?
             .set_default("server.port", default_server_port())?
             .set_default("log.level", default_log_level())?
+            .set_default("jwt.secret", default_jwt_secret())?
+            .set_default("jwt.expires_in", default_jwt_expires_in())?
             .add_source(config::Environment::default().separator("_"));
 
         builder
@@ -81,6 +93,15 @@ impl Default for LogSettings {
     }
 }
 
+impl Default for JwtSettings {
+    fn default() -> Self {
+        Self {
+            secret: default_jwt_secret(),
+            expires_in: default_jwt_expires_in(),
+        }
+    }
+}
+
 fn default_app_name() -> String {
     "r-admin-backend".to_string()
 }
@@ -95,4 +116,14 @@ fn default_server_port() -> u16 {
 
 fn default_log_level() -> String {
     "info".to_string()
+}
+
+fn default_jwt_secret() -> String {
+    // Local fallback only. Real deployments should always override this via
+    // environment variables or a dedicated secrets manager.
+    "change-me-for-production".to_string()
+}
+
+fn default_jwt_expires_in() -> u64 {
+    7200
 }

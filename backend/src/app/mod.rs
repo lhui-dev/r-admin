@@ -5,7 +5,7 @@ use sqlx::PgPool;
 use tokio::net::TcpListener;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::info;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{config::Settings, routes, state::AppState};
 
@@ -20,7 +20,7 @@ pub fn bootstrap_tracing(default_level: &str) {
 }
 
 pub async fn run(settings: Settings, pool: PgPool) -> anyhow::Result<()> {
-    let app_state = AppState::new(settings.app, pool);
+    let app_state = AppState::new(settings.app, settings.jwt, pool);
     let router = routes::build_router(app_state)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());

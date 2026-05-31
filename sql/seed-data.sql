@@ -2,9 +2,8 @@
 -- This script is designed to be idempotent as much as possible.
 --
 -- Important:
--- Replace the admin password hash below with the real hash format used by your backend.
--- Suggested default plaintext password: Admin@123456
--- Example if you use Rust argon2 crate: generate a PHC string in application bootstrap and replace it here.
+-- Default plaintext password: Admin@123456
+-- The value below is an Argon2id PHC string for the default admin password.
 
 BEGIN;
 
@@ -13,6 +12,7 @@ INSERT INTO sys_dept (
     id, parent_id, dept_name, dept_code, leader_user_id, sort_no, status,
     created_at, updated_at, created_by, updated_by, is_deleted, remark
 ) VALUES
+    (0, 0, 'ROOT', 'ROOT', NULL, 0, 1, NOW(), NOW(), 1000, 1000, FALSE, '系统虚拟根部门'),
     (100, 0, '平台总部', 'HQ', NULL, 1, 1, NOW(), NOW(), 1000, 1000, FALSE, '系统初始化根部门'),
     (110, 100, '技术中心', 'TECH', NULL, 10, 1, NOW(), NOW(), 1000, 1000, FALSE, '研发与平台技术部门'),
     (120, 100, '运营中心', 'OPS', NULL, 20, 1, NOW(), NOW(), 1000, 1000, FALSE, '运营管理部门')
@@ -54,7 +54,7 @@ INSERT INTO sys_user (
     (
         1000,
         'admin',
-        'REPLACE_WITH_REAL_PASSWORD_HASH',
+        '$argon2id$v=19$m=19456,t=2,p=1$ci1hZG1pbi1pbml0LXNhbHQ$KmrVD0vQzQRZwFYNpBXzOHGqos4qki+I7JajPBznjdI',
         '超级管理员',
         '平台管理员',
         '13800000000',

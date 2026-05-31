@@ -12,8 +12,9 @@
 6. [前端初始化计划](./frontend-init-plan.md)
 7. [认证初始化计划](./auth-init-plan.md)
 8. [认证初始化执行清单](./auth-init-checklist.md)
-9. [APIFox 认证调试说明](./apifox-auth-debug.md)
-10. [CI 工作流说明](./ci-workflows.md)
+9. [前端认证接入 TODO 清单](./frontend-auth-todo.md)
+10. [APIFox 认证调试说明](./apifox-auth-debug.md)
+11. [CI 工作流说明](./ci-workflows.md)
 
 ## 2. 图与模型
 
@@ -39,6 +40,7 @@
 5. 再看 [前端初始化计划](./frontend-init-plan.md)
 6. 再看 [认证初始化计划](./auth-init-plan.md)
 7. 再看 [认证初始化执行清单](./auth-init-checklist.md)
-8. 再看 [APIFox 认证调试说明](./apifox-auth-debug.md)
-9. 再看 [CI 工作流说明](./ci-workflows.md)
-10. 最后结合 [Docker 容器化说明](./dockerization.md) 落地环境
+8. 再看 [前端认证接入 TODO 清单](./frontend-auth-todo.md)
+9. 再看 [APIFox 认证调试说明](./apifox-auth-debug.md)
+10. 再看 [CI 工作流说明](./ci-workflows.md)
+11. 最后结合 [Docker 容器化说明](./dockerization.md) 落地环境

@@ -7,10 +7,12 @@ import {
 
 import { pinia } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
+import { useMenuStore } from '@/stores/menu'
 import AppLayout from '@/layouts/AppLayout.vue'
 import LoginView from '@/views/auth/LoginView.vue'
 import DashboardView from '@/views/dashboard/DashboardView.vue'
 import NotFoundView from '@/views/not-found/NotFoundView.vue'
+import ConstructionView from '@/views/placeholder/ConstructionView.vue'
 import ProfileView from '@/views/profile/ProfileView.vue'
 import SystemView from '@/views/system/SystemView.vue'
 
@@ -38,6 +40,11 @@ export const routes: RouteRecordRaw[] = [
         name: 'profile',
         component: ProfileView,
       },
+      {
+        path: 'placeholder/:feature',
+        name: 'placeholder',
+        component: ConstructionView,
+      },
     ],
   },
   {
@@ -63,6 +70,7 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
 
   router.beforeEach(async (to) => {
     const authStore = useAuthStore(pinia)
+    const menuStore = useMenuStore(pinia)
 
     if (to.meta.requiresAuth) {
       if (!authStore.hasToken) {
@@ -85,6 +93,8 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
           }
         }
       }
+
+      await ensureMenusReady(authStore, menuStore)
     }
 
     if (to.meta.guestOnly) {
@@ -95,6 +105,7 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
       if (!authStore.isAuthenticated) {
         try {
           await authStore.bootstrap()
+          await ensureMenusReady(authStore, menuStore)
         }
         catch {
           // Let the login page render if the persisted token can no longer be
@@ -115,3 +126,17 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
 const router = createAppRouter()
 
 export default router
+
+async function ensureMenusReady(
+  authStore: ReturnType<typeof useAuthStore>,
+  menuStore: ReturnType<typeof useMenuStore>,
+) {
+  if (!authStore.currentUser || menuStore.initialized) {
+    return
+  }
+
+  await menuStore.initMenus({
+    permissions: authStore.permissions,
+    isSuperAdmin: authStore.currentUser.is_super_admin,
+  })
+}

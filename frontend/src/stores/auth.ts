@@ -10,6 +10,7 @@ import {
   type LoginPayload,
   type LoginResponseData,
 } from '@/api/auth'
+import { useMenuStore } from '@/stores/menu'
 import { getToken, removeToken, setToken } from '@/utils/auth'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -99,6 +100,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function clearAuth() {
+    const menuStore = useMenuStore()
+
     accessToken.value = ''
     currentUser.value = null
     roles.value = []
@@ -106,6 +109,7 @@ export const useAuthStore = defineStore('auth', () => {
     profileLoaded.value = false
     profileRequest.value = null
     removeToken()
+    menuStore.resetMenus()
   }
 
   function applyLoginResponse(payload: LoginResponseData) {

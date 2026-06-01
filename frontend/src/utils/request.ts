@@ -31,7 +31,12 @@ request.interceptors.response.use(
       await unauthorizedHandler?.()
     }
 
-    return Promise.reject(error.response?.data ?? error)
+    const responseData = error.response?.data
+    const hasUsableResponseData = responseData !== undefined
+      && responseData !== null
+      && !(typeof responseData === 'string' && responseData.trim() === '')
+
+    return Promise.reject(hasUsableResponseData ? responseData : error)
   },
 )
 

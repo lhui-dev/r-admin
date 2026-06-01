@@ -4,7 +4,7 @@ use crate::{
     common::{error::AppResult, response::ApiResponse},
     middleware::auth::AuthUser,
     modules::auth::{
-        dto::{LoginRequest, LogoutResponse},
+        dto::{CurrentMenusResponse, LoginRequest, LogoutResponse},
         service,
     },
     state::AppState,
@@ -23,6 +23,14 @@ pub async fn me(
     auth_user: AuthUser,
 ) -> AppResult<Json<ApiResponse<crate::modules::auth::dto::CurrentUserResponse>>> {
     let response = service::current_user(&state, auth_user.user_id).await?;
+    Ok(Json(ApiResponse::ok(response)))
+}
+
+pub async fn menus(
+    State(state): State<AppState>,
+    auth_user: AuthUser,
+) -> AppResult<Json<ApiResponse<CurrentMenusResponse>>> {
+    let response = service::current_menus(&state, auth_user.user_id).await?;
     Ok(Json(ApiResponse::ok(response)))
 }
 

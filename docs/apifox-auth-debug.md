@@ -7,13 +7,15 @@
 当前提供的 APIFox 导入文件：
 
 1. [认证接口 OpenAPI 导入文件](./apifox-auth.openapi.json)
+2. [APIFox 调试脚本清单](./apifox-debug-scripts.md)
 
 该文件当前覆盖：
 
 1. `GET /api/health`
 2. `POST /api/auth/login`
 3. `GET /api/auth/me`
-4. `POST /api/auth/logout`
+4. `GET /api/auth/menus`
+5. `POST /api/auth/logout`
 
 ## 2. 导入方式
 
@@ -24,6 +26,10 @@
 3. 选择 `OpenAPI/Swagger`
 4. 选择文件 [apifox-auth.openapi.json](./apifox-auth.openapi.json)
 5. 导入后按 `Auth`、`Health` 分组检查接口是否完整
+
+如果你准备直接在 APIFox 中挂前置脚本和后置脚本，建议同时参考：
+
+1. [APIFox 调试脚本清单](./apifox-debug-scripts.md)
 
 ## 3. 推荐环境变量
 
@@ -48,10 +54,16 @@ access_token =
 
 ## 4. 当前默认调试账号
 
-当前种子数据默认管理员账号为：
+当前种子数据默认测试账号为：
 
 ```text
 username: admin
+password: Admin@123456
+
+username: sysadmin
+password: Admin@123456
+
+username: auditor
 password: Admin@123456
 ```
 
@@ -61,9 +73,9 @@ password: Admin@123456
 
 注意：
 
-1. 这次已经把种子文件中的管理员密码改成真实 Argon2 哈希
+1. 这次已经把种子文件中的默认密码改成真实 Argon2 哈希
 2. 如果你的数据库之前已经导入过旧版本种子，数据库中的 `sys_user.password_hash` 不会自动更新
-3. 如果登录失败，请优先重新执行种子 SQL，或单独更新 `admin` 的密码哈希
+3. 如果登录失败，请优先重新执行种子 SQL，或单独更新对应账号的密码哈希
 
 ## 5. 建议调试顺序
 
@@ -73,7 +85,8 @@ password: Admin@123456
 2. 再调 `POST /api/auth/login`
 3. 取回 `access_token`
 4. 再调 `GET /api/auth/me`
-5. 最后调 `POST /api/auth/logout`
+5. 再调 `GET /api/auth/menus`
+6. 最后调 `POST /api/auth/logout`
 
 ## 6. 当前接口行为说明
 
@@ -107,7 +120,22 @@ password: Admin@123456
 3. 返回角色编码列表
 4. 返回权限编码列表
 
-### 6.4 `POST /api/auth/logout`
+### 6.4 `GET /api/auth/menus`
+
+用途：
+
+1. 基于 Bearer Token 返回当前用户可见菜单树
+2. 返回前端可直接渲染的分组和菜单项
+3. 用于前端登录后的动态菜单初始化
+
+当前特点：
+
+1. 当前返回结构固定在 `data.menus`
+2. 一级目录菜单返回 `children`
+3. 当前前端已存在页面会映射到真实路由
+4. 其余菜单项会统一落到 `placeholder` 占位页
+
+### 6.5 `POST /api/auth/logout`
 
 当前阶段说明：
 
@@ -115,7 +143,28 @@ password: Admin@123456
 2. 主要用于前端调试退出流程
 3. 目前不做服务端 token 失效和黑名单管理
 
-## 7. 后续新增接口时如何维护
+## 7. 当前联调结论
+
+截至 2026-06-01，本地 Docker 联调已确认：
+
+1. `GET /api/health` 可用
+2. `POST /api/auth/login` 可用
+3. `GET /api/auth/me` 可用
+4. `GET /api/auth/menus` 可用
+
+当前种子数据限制：
+
+1. `admin` 当前是超级管理员
+2. `sysadmin` 当前绑定 `system_admin` 角色
+3. `auditor` 当前绑定 `auditor` 角色
+
+当前已完成的菜单联调结论：
+
+1. `admin` 可返回完整一级菜单：`首页`、`系统管理`、`日志审计`
+2. `sysadmin` 可正常通过非超级管理员链路返回菜单
+3. `auditor` 只返回 `首页` 和 `日志审计`，说明菜单已按权限裁剪
+
+## 8. 后续新增接口时如何维护
 
 后续新增接口后，建议始终同步维护这份 OpenAPI 文件，保持 APIFox 调试入口稳定。
 
@@ -127,7 +176,7 @@ password: Admin@123456
 4. 如果接口返回结构有复用，优先补到 `components.schemas`
 5. 错误响应尽量补充 `400`、`401`、`403`、`404`
 
-## 8. 推荐的后续拆分方式
+## 9. 推荐的后续拆分方式
 
 为了方便后续维护，建议后面不要一直把所有接口都堆在一个文件里。
 
@@ -141,7 +190,7 @@ password: Admin@123456
    `docs/openapi/system-menu.openapi.json`
 3. 如果未来后端引入 `utoipa` 或其他 OpenAPI 自动生成方案，再逐步切换成“代码生成文档”
 
-## 9. 建议的更新节奏
+## 10. 建议的更新节奏
 
 每次接口迭代建议同时完成下面几项：
 

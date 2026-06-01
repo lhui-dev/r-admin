@@ -19,10 +19,13 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
+import { useMenuStore } from '@/stores/menu'
+import type { AppMenuItem } from '@/types/menu'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const menuStore = useMenuStore()
 
 type NavItem = {
   key: string
@@ -34,7 +37,7 @@ type NavItem = {
 
 type NavSection = {
   title: string
-  items: NavItem[]
+  items: AppMenuItem[]
 }
 
 const collapsed = ref(false)
@@ -46,53 +49,35 @@ const layoutStyle = computed(() => ({
 
 const topNavItems: NavItem[] = [
   { key: 'workspace', label: '工作台', path: '/dashboard' },
-  { key: 'permission', label: '权限中心' },
-  { key: 'organization', label: '组织架构' },
-  { key: 'audit', label: '审计中心' },
+  { key: 'permission', label: '权限中心', path: '/placeholder/permission-center' },
+  { key: 'organization', label: '组织架构', path: '/placeholder/organization' },
+  { key: 'audit', label: '审计中心', path: '/placeholder/audit-center' },
   { key: 'settings', label: '系统配置', path: '/system' },
   { key: 'profile', label: '个人中心', path: '/profile' },
 ]
 
-const sidebarSections: NavSection[] = [
-  {
-    title: '工作台',
-    items: [
-      {
-        key: 'dashboard',
-        label: '概览看板',
-        icon: Histogram,
-        path: '/dashboard',
-      },
-    ],
-  },
-  {
-    title: '权限管理',
-    items: [
-      { key: 'users', label: '用户管理', icon: User },
-      { key: 'roles', label: '角色管理', icon: CollectionTag },
-      { key: 'permissions', label: '权限点管理', icon: Compass },
-      { key: 'menus', label: '菜单管理', icon: Document },
-    ],
-  },
-  {
-    title: '组织与审计',
-    items: [
-      { key: 'departments', label: '部门管理', icon: CreditCard },
-      { key: 'audit-logs', label: '审计日志', icon: Wallet },
-      { key: 'system', label: '系统设置', icon: Setting, path: '/system' },
-    ],
-  },
-  {
-    title: '个人中心',
-    items: [
-      { key: 'profile', label: '个人信息', icon: User, path: '/profile' },
-    ],
-  },
-]
+const menuIconMap: Record<string, unknown> = {
+  histogram: Histogram,
+  user: User,
+  'collection-tag': CollectionTag,
+  compass: Compass,
+  document: Document,
+  'credit-card': CreditCard,
+  wallet: Wallet,
+  setting: Setting,
+}
 
 const activePath = computed(() => route.path)
 const userDisplayName = computed(() => authStore.displayName)
 const userAvatarText = computed(() => authStore.avatarText)
+const sidebarSections = computed<NavSection[]>(() => {
+  return menuStore.visibleMenuTree
+    .map((section) => ({
+      title: section.title,
+      items: section.children ?? [],
+    }))
+    .filter((section) => section.items.length > 0)
+})
 const activeTopNavKey = computed(() => {
   if (route.path.startsWith('/system')) {
     return 'settings'
@@ -100,6 +85,18 @@ const activeTopNavKey = computed(() => {
 
   if (route.path.startsWith('/profile')) {
     return 'profile'
+  }
+
+  if (route.path.startsWith('/placeholder/permission-center')) {
+    return 'permission'
+  }
+
+  if (route.path.startsWith('/placeholder/organization')) {
+    return 'organization'
+  }
+
+  if (route.path.startsWith('/placeholder/audit-center')) {
+    return 'audit'
   }
 
   if (route.path.startsWith('/dashboard')) {
@@ -150,6 +147,10 @@ function handleTenantCommand(command: string) {
 function handleContentScroll(event: Event) {
   const target = event.target as HTMLElement | null
   isHeaderScrolled.value = (target?.scrollTop ?? 0) > 8
+}
+
+function resolveMenuIcon(icon?: string) {
+  return (icon && menuIconMap[icon]) || Document
 }
 </script>
 
@@ -293,15 +294,15 @@ function handleContentScroll(event: Event) {
 
           <button
             v-for="item in section.items"
-            :key="item.key"
+            :key="item.id"
             type="button"
             class="app-layout__nav-item"
             :class="{ 'is-active': item.path === activePath }"
-            :title="collapsed ? item.label : ''"
+            :title="collapsed ? item.title : ''"
             @click="handleRoute(item.path, item.description)"
           >
-            <el-icon class="app-layout__nav-icon"><component :is="item.icon" /></el-icon>
-            <span v-show="!collapsed">{{ item.label }}</span>
+            <el-icon class="app-layout__nav-icon"><component :is="resolveMenuIcon(item.icon)" /></el-icon>
+            <span v-show="!collapsed">{{ item.title }}</span>
           </button>
 
         </section>

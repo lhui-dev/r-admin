@@ -33,6 +33,23 @@ pub struct CurrentUserResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct CurrentMenuItem {
+    pub id: String,
+    pub name: String,
+    pub title: String,
+    pub path: Option<String>,
+    pub icon: Option<String>,
+    pub permission: Option<String>,
+    pub hidden: bool,
+    pub children: Vec<CurrentMenuItem>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CurrentMenusResponse {
+    pub menus: Vec<CurrentMenuItem>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct LogoutResponse {
     pub logged_out: bool,
 }

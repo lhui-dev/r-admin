@@ -3,7 +3,7 @@
   "info": {
     "title": "r-admin Auth Debug API",
     "version": "0.1.0",
-    "description": "OpenAPI import file for APIFox. Covers the current backend auth debugging endpoints: health, login, current user, and logout."
+    "description": "OpenAPI import file for APIFox. Covers the current backend auth debugging endpoints: health, login, current user, current menus, and logout."
   },
   "servers": [
     {
@@ -189,6 +189,107 @@
                       "dashboard:view",
                       "system:user:list",
                       "system:user:create"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 401,
+                  "message": "invalid or expired access token",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Disabled account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 403,
+                  "message": "user account is disabled",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Current user not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 404,
+                  "message": "current user not found",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/menus": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get current menus",
+        "description": "Returns the current user's visible menu tree based on the bearer token and role permissions.",
+        "operationId": "getAuthMenus",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current user menus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentMenusResponseEnvelope"
+                },
+                "example": {
+                  "code": 0,
+                  "message": "ok",
+                  "data": {
+                    "menus": [
+                      {
+                        "id": "20000",
+                        "name": "DashboardRoot",
+                        "title": "首页",
+                        "path": null,
+                        "icon": "histogram",
+                        "permission": null,
+                        "hidden": false,
+                        "children": [
+                          {
+                            "id": "20001",
+                            "name": "DashboardWorkbench",
+                            "title": "工作台",
+                            "path": "/dashboard",
+                            "icon": "histogram",
+                            "permission": "dashboard:view",
+                            "hidden": false,
+                            "children": []
+                          }
+                        ]
+                      }
                     ]
                   }
                 }
@@ -488,6 +589,90 @@
           },
           "data": {
             "$ref": "#/components/schemas/CurrentUserResponse"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      },
+      "CurrentMenuItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "20001"
+          },
+          "name": {
+            "type": "string",
+            "example": "DashboardWorkbench"
+          },
+          "title": {
+            "type": "string",
+            "example": "工作台"
+          },
+          "path": {
+            "type": "string",
+            "nullable": true,
+            "example": "/dashboard"
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true,
+            "example": "histogram"
+          },
+          "permission": {
+            "type": "string",
+            "nullable": true,
+            "example": "dashboard:view"
+          },
+          "hidden": {
+            "type": "boolean",
+            "example": false
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CurrentMenuItem"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "title",
+          "hidden",
+          "children"
+        ]
+      },
+      "CurrentMenusResponse": {
+        "type": "object",
+        "properties": {
+          "menus": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CurrentMenuItem"
+            }
+          }
+        },
+        "required": [
+          "menus"
+        ]
+      },
+      "CurrentMenusResponseEnvelope": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "ok"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CurrentMenusResponse"
           }
         },
         "required": [

@@ -4,6 +4,7 @@ import { createMemoryHistory } from 'vue-router'
 import { createAppRouter } from '@/router'
 import { pinia } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
+import { useMenuStore } from '@/stores/menu'
 
 const mockUser = {
   id: 1000,
@@ -18,6 +19,7 @@ describe('auth router guards', () => {
     window.localStorage.clear()
     vi.restoreAllMocks()
     useAuthStore(pinia).clearAuth()
+    useMenuStore(pinia).resetMenus()
   })
 
   it('redirects unauthenticated access to login with redirect query', async () => {
@@ -31,6 +33,7 @@ describe('auth router guards', () => {
 
   it('allows protected navigation after bootstrap restores the user profile', async () => {
     const authStore = useAuthStore(pinia)
+    const menuStore = useMenuStore(pinia)
     authStore.accessToken = 'mock-token'
     authStore.currentUser = null
 
@@ -43,6 +46,7 @@ describe('auth router guards', () => {
 
     expect(bootstrapSpy).toHaveBeenCalledTimes(1)
     expect(router.currentRoute.value.path).toBe('/dashboard')
+    expect(menuStore.initialized).toBe(true)
   })
 
   it('returns to login when bootstrap cannot recover the current user', async () => {

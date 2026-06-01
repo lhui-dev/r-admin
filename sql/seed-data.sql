@@ -73,6 +73,52 @@ INSERT INTO sys_user (
         1000,
         FALSE,
         '系统初始化管理员账号'
+    ),
+    (
+        1010,
+        'sysadmin',
+        '$argon2id$v=19$m=19456,t=2,p=1$ci1hZG1pbi1pbml0LXNhbHQ$KmrVD0vQzQRZwFYNpBXzOHGqos4qki+I7JajPBznjdI',
+        '系统管理员',
+        '系统管理员账号',
+        '13800000001',
+        'sysadmin@example.com',
+        NULL,
+        1,
+        100,
+        1,
+        FALSE,
+        NULL,
+        NULL,
+        NOW(),
+        NOW(),
+        NOW(),
+        1000,
+        1000,
+        FALSE,
+        '系统初始化系统管理员账号'
+    ),
+    (
+        1020,
+        'auditor',
+        '$argon2id$v=19$m=19456,t=2,p=1$ci1hZG1pbi1pbml0LXNhbHQ$KmrVD0vQzQRZwFYNpBXzOHGqos4qki+I7JajPBznjdI',
+        '审计员',
+        '审计测试账号',
+        '13800000002',
+        'auditor@example.com',
+        NULL,
+        1,
+        100,
+        1,
+        FALSE,
+        NULL,
+        NULL,
+        NOW(),
+        NOW(),
+        NOW(),
+        1000,
+        1000,
+        FALSE,
+        '系统初始化审计测试账号'
     )
 ON CONFLICT (username) DO UPDATE SET
     nickname = EXCLUDED.nickname,
@@ -212,7 +258,9 @@ ON CONFLICT (id) DO UPDATE SET
 -- 7. User-Role relations
 INSERT INTO sys_user_role (id, user_id, role_id, created_at, created_by)
 VALUES
-    (30000, 1000, 300, NOW(), 1000)
+    (30000, 1000, 300, NOW(), 1000),
+    (30010, 1010, 310, NOW(), 1000),
+    (30020, 1020, 320, NOW(), 1000)
 ON CONFLICT (user_id, role_id) DO NOTHING;
 
 -- 8. User-Post relations

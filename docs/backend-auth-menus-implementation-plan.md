@@ -1,14 +1,12 @@
-# 后端 `/api/auth/menus` 实现准备
+# 后端 `/api/auth/menus` 实现说明
 
 ## 1. 目标
 
-本文档用于承接当前动态菜单阶段的后端准备工作，在真正开始写 `/api/auth/menus` 代码之前，先把下面三件事整理清楚：
+本文档最初用于承接动态菜单阶段的后端设计准备；截至 2026-06-01，`GET /api/auth/menus` 第一版已经落地，因此当前文档改为说明：
 
-1. backend 侧 DTO 应该长什么样
-2. handler 应该如何落位
-3. service 查询思路应该如何拆分
-
-当前目标不是立即把完整菜单权限系统写完，而是先把“实现路径”定清楚，避免后续直接改代码时边做边返工。
+1. 已经实现了什么
+2. 实际实现与最初设计有什么差异
+3. 后续应如何继续推进
 
 ## 2. 当前基础
 
@@ -32,19 +30,22 @@
 3. `sys_role`
 4. 权限标识字段 `permission_code`
 
-因此，后端现在并不是“从零开始做菜单”，而是已经具备实现 `/api/auth/menus` 的基础数据条件。
+因此，`/api/auth/menus` 已经不再是“待设计接口”，而是已具备真实联调能力。
 
-## 3. 推荐实现范围
+## 3. 当前已实现范围
 
-第一版后端实现建议只做：
+当前第一版已经实现：
 
 1. 新增 `GET /api/auth/menus`
 2. 基于当前登录用户查询可见菜单
 3. 返回前端可直接渲染的菜单树
-4. 超级管理员先支持完整菜单返回
+4. 超级管理员返回完整可见菜单
 5. 普通角色按角色权限过滤可见菜单
+6. 空目录菜单不返回
+7. 当前前端已存在页面自动映射到真实路由
+8. 未落地页面统一映射到 `placeholder` 路由
 
-第一版暂不建议做：
+当前仍未纳入：
 
 1. 动态路由注册元信息全量下发
 2. 外链菜单
@@ -56,16 +57,14 @@
 
 `先把“当前用户能看到什么菜单”稳定返回出来，再考虑更复杂的菜单生态。`
 
-## 4. DTO 设计建议
+## 4. 当前 DTO 与响应结构
 
-### 4.1 新增响应 DTO
-
-建议在 `backend/src/modules/auth/dto.rs` 中新增：
+当前已落地 DTO：
 
 ```rust
 #[derive(Debug, Serialize)]
 pub struct CurrentMenuItem {
-    pub id: i64,
+    pub id: String,
     pub name: String,
     pub title: String,
     pub path: Option<String>,
@@ -81,9 +80,11 @@ pub struct CurrentMenusResponse {
 }
 ```
 
-### 4.2 字段说明
+与最初设计相比，当前 `id` 使用 `String`，这是为了和前端菜单类型保持更稳定的契约。
 
-建议字段与前端菜单契约保持一致：
+### 4.1 字段说明
+
+当前字段与前端菜单契约保持一致：
 
 1. `id`
    直接对应菜单表主键，方便稳定引用
@@ -102,7 +103,7 @@ pub struct CurrentMenusResponse {
 8. `children`
    返回子菜单数组，保持前端结构稳定
 
-### 4.3 为什么使用树形 DTO
+### 4.2 为什么仍然使用树形 DTO
 
 不建议第一版直接返回平铺数组让前端自己组树。
 
@@ -116,21 +117,9 @@ pub struct CurrentMenusResponse {
 
 `后端负责返回“最终可见菜单树”，前端负责渲染，不负责猜树。`
 
-## 5. Handler 落位建议
+## 5. Handler 与路由落位
 
-### 5.1 当前 handler 结构
-
-当前 `handler.rs` 已有：
-
-1. `login`
-2. `me`
-3. `logout`
-
-因此菜单接口最自然的落位也是放在认证模块下。
-
-### 5.2 建议新增 handler
-
-建议新增：
+当前实现已落位到认证模块下，handler 结构如下：
 
 ```rust
 pub async fn menus(
@@ -142,53 +131,43 @@ pub async fn menus(
 }
 ```
 
-### 5.3 路由接入建议
-
-在 `backend/src/routes/mod.rs` 中新增：
+当前路由已注册：
 
 ```rust
 .route("/api/auth/menus", get(auth_handler::menus))
 ```
 
-这样可以保证菜单初始化仍然沿用认证域接口，不会打散当前模块边界。
+## 6. Service 实现结构
 
-## 6. Service 设计建议
-
-### 6.1 推荐新增 service 入口
-
-建议在 `backend/src/modules/auth/service.rs` 中新增：
+当前 service 主入口已实现：
 
 ```rust
 pub async fn current_menus(state: &AppState, user_id: i64) -> AppResult<CurrentMenusResponse>
 ```
 
-### 6.2 推荐拆分的内部步骤
-
-建议 service 至少拆成下面几步：
+当前实现实际拆成了以下几个步骤：
 
 1. 先查询并校验当前用户
-2. 查询用户角色
-3. 查询该用户可见菜单的原始记录
-4. 将原始记录组装成树
-5. 返回 `CurrentMenusResponse`
+2. 超级管理员走全量菜单查询
+3. 普通角色走基于权限标识的菜单过滤查询
+4. 将菜单原始记录组装成树
+5. 过滤空目录
+6. 归一化路径与图标
+7. 返回 `CurrentMenusResponse`
 
-这样后续如果要扩租户、缓存或菜单状态过滤，都有明确插入点。
-
-## 7. 查询思路建议
+## 7. 查询思路与当前行为
 
 ### 7.1 超级管理员
 
-建议策略：
+当前策略：
 
 1. 如果 `is_super_admin = true`
 2. 直接查询全部启用、未删除菜单
 3. 按 `parent_id + sort_no` 构建树
 
-这样第一版最容易先跑通。
-
 ### 7.2 普通角色
 
-建议策略：
+当前策略：
 
 1. 先查用户角色
 2. 基于角色可见权限标识，过滤 `sys_menu.permission_code`
@@ -202,7 +181,7 @@ pub async fn current_menus(state: &AppState, user_id: i64) -> AppResult<CurrentM
 4. `sys_permission`
 5. `sys_menu.permission_code`
 
-因此第一版可以先走：
+当前第一版实际采用：
 
 `用户 -> 角色 -> 权限标识 -> 用 permission_code 关联 sys_menu`
 
@@ -226,136 +205,63 @@ pub async fn current_menus(state: &AppState, user_id: i64) -> AppResult<CurrentM
 
 这样后续组树时信息足够，不用重复回表。
 
-## 8. 推荐内部 Row 结构
+## 8. 当前内部 Row 结构
 
-建议在 `service.rs` 内部新增一个 `MenuRow`：
+当前 `service.rs` 中使用的数据库行结构为：
 
 ```rust
-#[derive(Debug, FromRow)]
+#[derive(Debug, Clone, FromRow)]
 struct MenuRow {
     id: i64,
-    parent_id: Option<i64>,
+    parent_id: i64,
     menu_name: String,
+    menu_type: String,
     route_name: Option<String>,
     route_path: Option<String>,
     icon: Option<String>,
     permission_code: Option<String>,
-    hidden: bool,
+    visible: bool,
     sort_no: i32,
 }
 ```
 
-说明：
+## 9. 组树与归一化逻辑
 
-1. 这是数据库行结构
-2. 不建议直接把数据库行结构暴露成 API DTO
-3. 组树前后分成两层结构更利于维护
-
-## 9. 组树思路建议
-
-建议流程：
+当前流程：
 
 1. 先查出菜单平铺列表
-2. 按 `sort_no` 排好
-3. 建立 `id -> node` 的映射
-4. 根据 `parent_id` 归并到父节点
-5. 最终返回顶层菜单数组
+2. 按 `parent_id + sort_no + id` 排好
+3. 基于 `parent_id` 构建树
+4. 目录节点若无可见子节点则过滤掉
+5. 已落地页面映射到真实路由
+6. 未落地页面映射到 `placeholder`
+7. 图标名称归一化为前端可识别字符串
 
-第一版如果希望降低实现复杂度，也可以先：
+## 10. 当前联调结果
 
-1. 只支持两级菜单
-2. 目录级菜单作为顶层
-3. 可点击页面作为子节点
+已完成真实接口验证：
 
-这和当前前端动态菜单初始化阶段是匹配的。
+1. `admin` 返回 `首页`、`系统管理`、`日志审计`
+2. `sysadmin` 返回 `首页`、`系统管理`、`日志审计`
+3. `auditor` 只返回 `首页`、`日志审计`
 
-## 10. 推荐 SQL 思路
+这说明：
 
-### 10.1 超级管理员
+1. 接口可用
+2. 角色差异可用
+3. 空目录过滤可用
 
-建议查询方向：
+## 11. 后续继续推进的建议
 
-```sql
-SELECT
-    id,
-    parent_id,
-    menu_name,
-    route_name,
-    route_path,
-    icon,
-    permission_code,
-    hidden,
-    sort_no
-FROM sys_menu
-WHERE is_deleted = FALSE
-  AND status = 1
-ORDER BY parent_id NULLS FIRST, sort_no, id;
-```
+当前不建议继续停留在 `/api/auth/menus` 设计层，而应转向 RBAC 业务接口建设。
 
-### 10.2 普通角色
+推荐下一步：
 
-建议查询方向：
-
-```sql
-SELECT DISTINCT
-    m.id,
-    m.parent_id,
-    m.menu_name,
-    m.route_name,
-    m.route_path,
-    m.icon,
-    m.permission_code,
-    m.hidden,
-    m.sort_no
-FROM sys_menu m
-INNER JOIN sys_role_permission rp
-    ON rp.permission_id = p.id
-INNER JOIN sys_permission p
-    ON p.permission_code = m.permission_code
-INNER JOIN sys_user_role ur
-    ON ur.role_id = rp.role_id
-INNER JOIN sys_role r
-    ON r.id = ur.role_id
-WHERE ur.user_id = $1
-  AND m.is_deleted = FALSE
-  AND m.status = 1
-  AND r.is_deleted = FALSE
-  AND r.status = 1
-  AND p.is_deleted = FALSE
-  AND p.status = 1;
-```
-
-注意：
-
-上面只是查询方向示意，真正实现时需要再补：
-
-1. 父级目录保留策略
-2. `menu_type` 过滤
-3. 无权限但有可见子级的目录保留逻辑
-
-## 11. 第一版实现顺序建议
-
-建议真正写代码时按下面顺序推进：
-
-1. 在 `dto.rs` 中新增菜单响应 DTO
-2. 在 `handler.rs` 中新增 `menus`
-3. 在 `routes/mod.rs` 注册 `/api/auth/menus`
-4. 在 `service.rs` 先做超级管理员完整返回
-5. 再补普通用户按权限过滤
-6. 最后联调前端 fallback 切换
-
-这样可以先快速把 `404` 消掉，再逐步提升菜单过滤准确度。
-
-## 12. 第一版完成标准
-
-当下面条件满足时，可认为后端 `/api/auth/menus` 准备阶段已经可以进入正式编码：
-
-1. DTO 结构已明确
-2. handler 落位已明确
-3. service 入口已明确
-4. 查询路径和组树方式已明确
-5. 已知道第一版先做超级管理员，再补普通角色过滤
+1. 用户管理接口设计与占位实现
+2. 角色管理接口设计与占位实现
+3. 菜单管理接口设计与占位实现
+4. 为后续统一分页与列表筛选 DTO 打基础
 
 一句话总结：
 
-`当前阶段最重要的不是立刻把菜单接口写完，而是先把“返回什么、从哪查、怎么组树、落在哪层”这四件事定稳。`
+`/api/auth/menus` 第一版已经落地完成，下一步应从“菜单能不能返回”转向“系统管理业务接口如何系统化展开”。`

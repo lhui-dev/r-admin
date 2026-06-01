@@ -13,6 +13,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/health", get(health_handler::health))
         .route("/api/auth/login", post(auth_handler::login))
         .route("/api/auth/me", get(auth_handler::me))
+        .route("/api/auth/menus", get(auth_handler::menus))
         .route("/api/auth/logout", post(auth_handler::logout))
         .with_state(state)
 }

@@ -7,13 +7,15 @@
 1. 健康检查
 2. 认证接口
 3. 用户管理第一版接口
+4. 角色权限配置接口
 
 ## 1. 导入文件
 
 当前提供的 APIFox 相关文件：
 
 1. [OpenAPI 导入文件](./apifox-auth.openapi.json)
-2. [APIFox 调试脚本清单](./apifox-debug-scripts.md)
+2. [角色权限配置 OpenAPI 导入文件](./apifox-role-permission.openapi.json)
+3. [APIFox 调试脚本清单](./apifox-debug-scripts.md)
 
 当前 OpenAPI 文件覆盖：
 
@@ -27,6 +29,8 @@
 8. `POST /api/system/users`
 9. `PATCH /api/system/users/{id}`
 10. `PATCH /api/system/users/{id}/status`
+11. `GET /api/system/roles/{id}/permission-config`
+12. `PUT /api/system/roles/{id}/permissions`
 
 ## 2. 导入方式
 
@@ -37,6 +41,11 @@
 3. 选择 `OpenAPI/Swagger`
 4. 选择文件 [apifox-auth.openapi.json](./apifox-auth.openapi.json)
 5. 导入后按 `Health`、`Auth`、`System User` 三个分组检查接口是否完整
+
+如果你准备单独调“角色权限配置”这一条线，也可以直接导入：
+
+1. [apifox-role-permission.openapi.json](./apifox-role-permission.openapi.json)
+2. 导入后检查 `System Role Permission` 分组
 
 如果你准备继续在 APIFox 中挂前后置脚本，建议同时参考：
 
@@ -116,6 +125,8 @@ role: 330 operator
 8. `PATCH /api/system/users/{id}`
 9. `PATCH /api/system/users/{id}/status`
 10. `POST /api/auth/logout`
+11. `GET /api/system/roles/310/permission-config`
+12. `PUT /api/system/roles/310/permissions`
 
 这样做的原因：
 
@@ -277,6 +288,31 @@ pm.test('user list payload shape is valid', function () {
 2. 不能停用超级管理员
 3. 不能停用当前登录用户自己
 
+### 7.11 `GET /api/system/roles/{id}/permission-config`
+
+用途：
+
+1. 返回角色摘要
+2. 返回完整权限树
+3. 返回当前角色已勾选的叶子权限集合
+
+当前联调建议直接使用：
+
+1. `role id = 310`
+2. 对应角色编码 `system_admin`
+
+### 7.12 `PUT /api/system/roles/{id}/permissions`
+
+用途：
+
+1. 以全量覆盖方式保存当前角色权限
+2. 保存成功后返回最新角色摘要和权限摘要
+
+当前说明：
+
+1. 请求体使用 `permission_ids`
+2. 建议先用种子权限全集回写，避免把本地角色长期停留在临时测试状态
+
 ## 8. 统一回归结果
 
 本次联调与回归覆盖了：
@@ -285,6 +321,7 @@ pm.test('user list payload shape is valid', function () {
 2. OpenAPI JSON 可解析性校验
 3. 后端编译检查
 4. 用户管理真实接口链路回归
+5. 角色权限配置真实接口链路回归
 
 当前已验证通过的接口：
 
@@ -295,6 +332,8 @@ pm.test('user list payload shape is valid', function () {
 5. `POST /api/system/users`
 6. `PATCH /api/system/users/{id}`
 7. `PATCH /api/system/users/{id}/status`
+8. `GET /api/system/roles/310/permission-config`
+9. `PUT /api/system/roles/310/permissions`
 
 本次真实联调用例：
 
@@ -306,6 +345,7 @@ pm.test('user list payload shape is valid', function () {
 6. 更新昵称与部门到 `运营中心`
 7. 停用该用户，状态变更为 `0`
 8. 再查详情确认更新已生效
+9. 通过前端 `/api` 代理打通 `role permission config` 查询与保存接口
 
 ## 9. 返回数据示例
 
@@ -498,6 +538,117 @@ pm.test('user list payload shape is valid', function () {
 }
 ```
 
+### 9.8 `GET /api/system/roles/310/permission-config`
+
+返回示例：
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "role": {
+      "id": 310,
+      "code": "system_admin",
+      "name": "系统管理员",
+      "status": 1,
+      "data_scope": "department",
+      "sort": 10,
+      "is_builtin": true,
+      "user_count": 1,
+      "permission_count": 27,
+      "remark": "系统内置系统管理员角色",
+      "created_at": "2026-05-31T14:43:34Z",
+      "updated_at": "2026-06-03T14:48:16Z"
+    },
+    "permission_tree": [
+      {
+        "id": "module:21000",
+        "name": "系统管理",
+        "type": "module",
+        "children": []
+      }
+    ],
+    "checked_permission_ids": [
+      "dashboard:view",
+      "system:role:assign-permission",
+      "system:role:list"
+    ]
+  }
+}
+```
+
+### 9.9 `PUT /api/system/roles/310/permissions`
+
+请求体示例：
+
+```json
+{
+  "permission_ids": [
+    "dashboard:view",
+    "system:user:list",
+    "system:user:create",
+    "system:user:update",
+    "system:user:reset-password",
+    "system:user:assign-role",
+    "system:role:list",
+    "system:role:create",
+    "system:role:update",
+    "system:role:assign-permission",
+    "system:menu:list",
+    "system:menu:create",
+    "system:menu:update",
+    "system:dept:list",
+    "system:dept:create",
+    "system:dept:update",
+    "system:post:list",
+    "system:post:create",
+    "system:post:update",
+    "system:dict:list",
+    "system:dict:create",
+    "system:dict:update",
+    "system:config:list",
+    "system:config:create",
+    "system:config:update",
+    "system:log:login:list",
+    "system:log:operation:list"
+  ]
+}
+```
+
+返回示例：
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "id": 310,
+    "code": "system_admin",
+    "name": "系统管理员",
+    "status": 1,
+    "data_scope": "department",
+    "sort": 10,
+    "is_builtin": true,
+    "user_count": 1,
+    "permission_count": 27,
+    "remark": "系统内置系统管理员角色",
+    "created_at": "2026-05-31T14:43:34Z",
+    "updated_at": "2026-06-03T15:00:08Z",
+    "permissions": [
+      {
+        "id": "dashboard:view",
+        "name": "首页查看"
+      },
+      {
+        "id": "system:role:assign-permission",
+        "name": "角色分配权限"
+      }
+    ]
+  }
+}
+```
+
 ## 10. 后续新增接口时如何维护
 
 后续新增接口后，建议始终同步维护这份 OpenAPI 文件，保持 APIFox 调试入口稳定。
@@ -505,11 +656,12 @@ pm.test('user list payload shape is valid', function () {
 建议维护规则：
 
 1. 新增后端路由时，同步更新 [apifox-auth.openapi.json](./apifox-auth.openapi.json)
-2. 优先保持 `tags`、`summary`、`requestBody`、`parameters`、`responses` 完整
-3. 如果接口需要登录，补上 `BearerAuth`
-4. 如果接口返回结构有复用，优先补到 `components.schemas`
-5. 错误响应尽量补充 `400`、`401`、`403`、`404`、`409`
-6. 联调通过后，把一个真实成功示例同步写回文档
+2. 角色权限配置这类独立链路，允许拆成单独导入文件，例如 [apifox-role-permission.openapi.json](./apifox-role-permission.openapi.json)
+3. 优先保持 `tags`、`summary`、`requestBody`、`parameters`、`responses` 完整
+4. 如果接口需要登录，补上 `BearerAuth`
+5. 如果接口返回结构有复用，优先补到 `components.schemas`
+6. 错误响应尽量补充 `400`、`401`、`403`、`404`、`409`
+7. 联调通过后，把一个真实成功示例同步写回文档
 
 ## 11. 推荐的后续拆分方式
 

@@ -27,6 +27,7 @@
 1. [E-R 图 SVG](./rbac-er-diagram.svg)
 2. [E-R 图 Mermaid 源码](./rbac-er-diagram.mmd)
 3. [APIFox OpenAPI 导入文件](./apifox-auth.openapi.json)
+4. [角色权限配置 OpenAPI 导入文件](./apifox-role-permission.openapi.json)
 
 ## 3. 相关脚本入口
 

@@ -48,6 +48,42 @@ describe('menu service', () => {
     expect(menus[0].children?.[0].path).toBe('/dashboard')
   })
 
+  it('normalizes legacy placeholder menu paths to real routes', async () => {
+    request.defaults.adapter = async (config) => {
+      return {
+        data: {
+          code: 0,
+          message: 'ok',
+          data: {
+            menus: [
+              {
+                id: 'system',
+                name: 'system',
+                title: '系统管理',
+                children: [
+                  {
+                    id: 'roles',
+                    name: 'roles',
+                    title: '角色管理',
+                    path: '/placeholder/roles',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      }
+    }
+
+    const menus = await loadCurrentMenus()
+
+    expect(menus[0].children?.[0].path).toBe('/system/role')
+  })
+
   it('falls back to local mock menus when the menus endpoint is not implemented yet', async () => {
     request.defaults.adapter = async (config) => {
       throw new axios.AxiosError(
@@ -68,6 +104,6 @@ describe('menu service', () => {
     const menus = await loadCurrentMenus()
 
     expect(menus.length).toBeGreaterThan(0)
-    expect(menus[0].id).toBe('workspace')
+    expect(menus[0].id).toBe('dashboard-root')
   })
 })

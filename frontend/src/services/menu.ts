@@ -1,4 +1,5 @@
 import { fetchCurrentMenus } from '@/api/menu'
+import { normalizeMenuTreePaths } from '@/router/menu-access'
 import { buildMockMenuTree } from '@/mock/menus'
 import type { AppMenuItem } from '@/types/menu'
 
@@ -10,13 +11,13 @@ export type LoadCurrentMenusOptions = {
 export async function loadCurrentMenus(_options: LoadCurrentMenusOptions = {}): Promise<AppMenuItem[]> {
   try {
     const response = await fetchCurrentMenus()
-    return response.data.menus
+    return normalizeMenuTreePaths(response.data.menus)
   }
   catch (error) {
     // The menu endpoint is still being phased in. Falling back here keeps the
     // current UI usable while the backend contract catches up.
     if (shouldFallbackToMockMenus(error)) {
-      return buildMockMenuTree()
+      return normalizeMenuTreePaths(buildMockMenuTree())
     }
 
     throw error

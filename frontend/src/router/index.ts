@@ -8,6 +8,11 @@ import {
 import { pinia } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { useMenuStore } from '@/stores/menu'
+import {
+  LEGACY_MENU_ROUTE_MAP,
+  canAccessProtectedRoute,
+  resolveFirstAccessiblePath,
+} from '@/router/menu-access'
 import AppLayout from '@/layouts/AppLayout.vue'
 import LoginView from '@/views/auth/LoginView.vue'
 import DashboardView from '@/views/dashboard/DashboardView.vue'
@@ -18,6 +23,12 @@ import RolePermissionConfigView from '@/views/system/role/RolePermissionConfigVi
 import RoleManagementView from '@/views/system/role/RoleManagementView.vue'
 import SystemView from '@/views/system/SystemView.vue'
 import UserManagementView from '@/views/system/user/UserManagementView.vue'
+
+const legacyPlaceholderRedirectRoutes: RouteRecordRaw[] = Object.entries(LEGACY_MENU_ROUTE_MAP)
+  .map(([legacyPath, realPath]) => ({
+    path: legacyPath.replace(/^\//, ''),
+    redirect: realPath,
+  }))
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -52,6 +63,9 @@ export const routes: RouteRecordRaw[] = [
         path: 'system/role/:roleId/permission',
         name: 'system-role-permission',
         component: RolePermissionConfigView,
+        meta: {
+          requiredPermission: 'system:role:assign-permission',
+        },
       },
       {
         path: 'system/menu',
@@ -114,46 +128,7 @@ export const routes: RouteRecordRaw[] = [
         name: 'profile',
         component: ProfileView,
       },
-      {
-        path: 'placeholder/users',
-        redirect: '/system/user',
-      },
-      {
-        path: 'placeholder/roles',
-        redirect: '/system/role',
-      },
-      {
-        path: 'placeholder/menus',
-        redirect: '/system/menu',
-      },
-      {
-        path: 'placeholder/departments',
-        redirect: '/system/dept',
-      },
-      {
-        path: 'placeholder/posts',
-        redirect: '/system/post',
-      },
-      {
-        path: 'placeholder/dicts',
-        redirect: '/system/dict',
-      },
-      {
-        path: 'placeholder/configs',
-        redirect: '/system/config',
-      },
-      {
-        path: 'placeholder/login-logs',
-        redirect: '/audit/login-log',
-      },
-      {
-        path: 'placeholder/audit-logs',
-        redirect: '/audit/operation-log',
-      },
-      {
-        path: 'placeholder/operation-log',
-        redirect: '/audit/operation-log',
-      },
+      ...legacyPlaceholderRedirectRoutes,
       {
         path: 'placeholder/:feature',
         name: 'placeholder',
@@ -209,6 +184,21 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
       }
 
       await ensureMenusReady(authStore, menuStore)
+
+      if (
+        authStore.currentUser
+        && !canAccessProtectedRoute({
+          path: to.path,
+          menuTree: menuStore.visibleMenuTree,
+          permissions: authStore.permissions,
+          isSuperAdmin: authStore.currentUser.is_super_admin,
+          requiredPermission: typeof to.meta.requiredPermission === 'string'
+            ? to.meta.requiredPermission
+            : undefined,
+        })
+      ) {
+        return resolveFirstAccessiblePath(menuStore.visibleMenuTree)
+      }
     }
 
     if (to.meta.guestOnly) {

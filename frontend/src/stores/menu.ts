@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
+import { collectAccessibleMenuPaths } from '@/router/menu-access'
 import { loadCurrentMenus, type LoadCurrentMenusOptions } from '@/services/menu'
 import type { AppMenuItem } from '@/types/menu'
 
@@ -9,6 +10,7 @@ export const useMenuStore = defineStore('menu', () => {
   const initialized = ref(false)
 
   const visibleMenuTree = computed(() => menuTree.value)
+  const accessiblePaths = computed(() => collectAccessibleMenuPaths(menuTree.value))
 
   async function initMenus(options: LoadCurrentMenusOptions = {}) {
     const sourceMenus = await loadCurrentMenus(options)
@@ -30,6 +32,7 @@ export const useMenuStore = defineStore('menu', () => {
     menuTree,
     initialized,
     visibleMenuTree,
+    accessiblePaths,
     initMenus,
     setMenus,
     resetMenus,

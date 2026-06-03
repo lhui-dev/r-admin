@@ -1,11 +1,19 @@
 # APIFox 调试脚本清单
 
-本文档整理了一组适用于当前 `r-admin` 认证与菜单接口的 APIFox 脚本，目标是：
+本文档整理了一组适用于当前 `r-admin` 认证、菜单与受保护业务接口的 APIFox 脚本，目标是：
 
 1. 自动保存登录返回的 token
 2. 自动拼接 `Authorization` 请求头
 3. 自动校验 `/me` 与 `/menus` 返回结构
 4. 自动清理退出登录后的本地变量
+
+这些脚本同样适用于当前第一版用户管理接口：
+
+1. `GET /api/system/users`
+2. `GET /api/system/users/{id}`
+3. `POST /api/system/users`
+4. `PATCH /api/system/users/{id}`
+5. `PATCH /api/system/users/{id}/status`
 
 建议搭配文档：
 

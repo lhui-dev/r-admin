@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "r-admin Auth Debug API",
-    "version": "0.1.0",
-    "description": "OpenAPI import file for APIFox. Covers the current backend auth debugging endpoints: health, login, current user, current menus, and logout."
+    "title": "r-admin Auth & System User Debug API",
+    "version": "0.2.0",
+    "description": "OpenAPI import file for APIFox. Covers the current backend debugging endpoints for health, auth, and the first user-management slice."
   },
   "servers": [
     {
@@ -18,7 +18,11 @@
     },
     {
       "name": "Auth",
-      "description": "Authentication endpoints for the first auth initialization slice"
+      "description": "Authentication endpoints for the initial auth slice"
+    },
+    {
+      "name": "System User",
+      "description": "First user-management endpoints for list, detail, create, update, and status change"
     }
   ],
   "paths": {
@@ -392,6 +396,587 @@
           }
         }
       }
+    },
+    "/api/system/users": {
+      "get": {
+        "tags": [
+          "System User"
+        ],
+        "summary": "List users",
+        "description": "Returns the first-version paginated user list. Supports keyword, department, and status filtering.",
+        "operationId": "getSystemUsers",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number. Defaults to 1.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Page size. Defaults to 20 and is clamped to 1-100.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "description": "Fuzzy matches username, nickname, real_name, and mobile.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "operator131857"
+            }
+          },
+          {
+            "name": "dept_id",
+            "in": "query",
+            "description": "Department filter.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 120
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "User status filter. `1` enabled, `0` disabled.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "enum": [
+                0,
+                1
+              ],
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated user list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListResponseEnvelope"
+                },
+                "example": {
+                  "code": 0,
+                  "message": "ok",
+                  "data": {
+                    "items": [
+                      {
+                        "id": 1030,
+                        "username": "operator131857",
+                        "nickname": "操作员测试-更新",
+                        "real_name": "联调测试用户",
+                        "mobile": "13900001318",
+                        "email": "operator131857@example.com",
+                        "status": 0,
+                        "is_super_admin": false,
+                        "dept": {
+                          "id": 120,
+                          "name": "运营中心"
+                        },
+                        "roles": [],
+                        "posts": [],
+                        "last_login_at": null,
+                        "created_at": "2026-06-03T05:18:57Z"
+                      }
+                    ],
+                    "pagination": {
+                      "page": 1,
+                      "page_size": 20,
+                      "total": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 401,
+                  "message": "missing authorization header",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "System User"
+        ],
+        "summary": "Create user",
+        "description": "Creates a first-version system user. Roles and posts are not assigned by this endpoint yet.",
+        "operationId": "postSystemUsers",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              },
+              "example": {
+                "username": "operator131857",
+                "password": "Admin@123456",
+                "nickname": "操作员测试",
+                "real_name": "联调测试用户",
+                "mobile": "13900001318",
+                "email": "operator131857@example.com",
+                "gender": 1,
+                "dept_id": 110,
+                "status": 1,
+                "remark": "APIFox 联调用临时用户"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserMutationResponseEnvelope"
+                },
+                "example": {
+                  "code": 0,
+                  "message": "ok",
+                  "data": {
+                    "id": 1030,
+                    "username": "operator131857"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 400,
+                  "message": "dept_id does not exist",
+                  "data": null
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 401,
+                  "message": "invalid or expired access token",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Unique constraint conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 409,
+                  "message": "username already exists",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/users/{id}": {
+      "get": {
+        "tags": [
+          "System User"
+        ],
+        "summary": "Get user detail",
+        "description": "Returns a single user detail record with department, role, and post summaries.",
+        "operationId": "getSystemUserDetail",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "User ID",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 1030
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDetailResponseEnvelope"
+                },
+                "example": {
+                  "code": 0,
+                  "message": "ok",
+                  "data": {
+                    "id": 1030,
+                    "username": "operator131857",
+                    "nickname": "操作员测试-更新",
+                    "real_name": "联调测试用户",
+                    "mobile": "13900001318",
+                    "email": "operator131857@example.com",
+                    "avatar_url": null,
+                    "gender": 1,
+                    "status": 0,
+                    "is_super_admin": false,
+                    "remark": "APIFox 联调用临时用户",
+                    "dept": {
+                      "id": 120,
+                      "name": "运营中心"
+                    },
+                    "roles": [],
+                    "posts": [],
+                    "last_login_at": null,
+                    "last_login_ip": null,
+                    "password_updated_at": "2026-06-03T05:18:57Z",
+                    "created_at": "2026-06-03T05:18:57Z",
+                    "updated_at": "2026-06-03T05:19:14Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 401,
+                  "message": "invalid or expired access token",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 404,
+                  "message": "user not found",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "System User"
+        ],
+        "summary": "Update user",
+        "description": "Updates the first-version editable user profile fields.",
+        "operationId": "patchSystemUser",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "User ID",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 1030
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              },
+              "example": {
+                "nickname": "操作员测试-更新",
+                "real_name": "联调测试用户",
+                "mobile": "13900001318",
+                "email": "operator131857@example.com",
+                "gender": 1,
+                "dept_id": 120,
+                "remark": "更新为运营中心"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserMutationResponseEnvelope"
+                },
+                "example": {
+                  "code": 0,
+                  "message": "ok",
+                  "data": {
+                    "id": 1030,
+                    "username": "operator131857"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 400,
+                  "message": "at least one updatable field is required",
+                  "data": null
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 401,
+                  "message": "invalid or expired access token",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 404,
+                  "message": "user not found",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Unique constraint conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 409,
+                  "message": "email already exists",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/users/{id}/status": {
+      "patch": {
+        "tags": [
+          "System User"
+        ],
+        "summary": "Update user status",
+        "description": "Enables or disables a user. Current implementation blocks disabling a super admin or the current operator themself.",
+        "operationId": "patchSystemUserStatus",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "User ID",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 1030
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserStatusRequest"
+              },
+              "example": {
+                "status": 0
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User status updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserStatusMutationResponseEnvelope"
+                },
+                "example": {
+                  "code": 0,
+                  "message": "ok",
+                  "data": {
+                    "id": 1030,
+                    "username": "operator131857",
+                    "status": 0
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 400,
+                  "message": "status must be 0 or 1",
+                  "data": null
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 401,
+                  "message": "invalid or expired access token",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 403,
+                  "message": "current user cannot disable self",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "code": 404,
+                  "message": "user not found",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -706,6 +1291,551 @@
           },
           "data": {
             "$ref": "#/components/schemas/LogoutPayload"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      },
+      "UserDeptSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 120
+          },
+          "name": {
+            "type": "string",
+            "example": "运营中心"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "UserRoleSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 330
+          },
+          "code": {
+            "type": "string",
+            "example": "operator"
+          },
+          "name": {
+            "type": "string",
+            "example": "普通操作员"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name"
+        ]
+      },
+      "UserPostSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 210
+          },
+          "code": {
+            "type": "string",
+            "example": "SYSTEM_ADMIN"
+          },
+          "name": {
+            "type": "string",
+            "example": "系统管理员"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name"
+        ]
+      },
+      "UserListItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1030
+          },
+          "username": {
+            "type": "string",
+            "example": "operator131857"
+          },
+          "nickname": {
+            "type": "string",
+            "example": "操作员测试-更新"
+          },
+          "real_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "联调测试用户"
+          },
+          "mobile": {
+            "type": "string",
+            "nullable": true,
+            "example": "13900001318"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "example": "operator131857@example.com"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          },
+          "is_super_admin": {
+            "type": "boolean",
+            "example": false
+          },
+          "dept": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserDeptSummary"
+              }
+            ],
+            "nullable": true
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserRoleSummary"
+            }
+          },
+          "posts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserPostSummary"
+            }
+          },
+          "last_login_at": {
+            "type": "string",
+            "nullable": true,
+            "example": "2026-06-03T05:18:57Z"
+          },
+          "created_at": {
+            "type": "string",
+            "example": "2026-06-03T05:18:57Z"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "nickname",
+          "status",
+          "is_super_admin",
+          "roles",
+          "posts",
+          "created_at"
+        ]
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int64",
+            "example": 20
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          }
+        },
+        "required": [
+          "page",
+          "page_size",
+          "total"
+        ]
+      },
+      "UserListData": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserListItem"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ]
+      },
+      "UserListResponseEnvelope": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "ok"
+          },
+          "data": {
+            "$ref": "#/components/schemas/UserListData"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      },
+      "UserDetailData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1030
+          },
+          "username": {
+            "type": "string",
+            "example": "operator131857"
+          },
+          "nickname": {
+            "type": "string",
+            "example": "操作员测试-更新"
+          },
+          "real_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "联调测试用户"
+          },
+          "mobile": {
+            "type": "string",
+            "nullable": true,
+            "example": "13900001318"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "example": "operator131857@example.com"
+          },
+          "avatar_url": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "gender": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "example": 1
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          },
+          "is_super_admin": {
+            "type": "boolean",
+            "example": false
+          },
+          "remark": {
+            "type": "string",
+            "nullable": true,
+            "example": "APIFox 联调用临时用户"
+          },
+          "dept": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserDeptSummary"
+              }
+            ],
+            "nullable": true
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserRoleSummary"
+            }
+          },
+          "posts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserPostSummary"
+            }
+          },
+          "last_login_at": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "last_login_ip": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "password_updated_at": {
+            "type": "string",
+            "nullable": true,
+            "example": "2026-06-03T05:18:57Z"
+          },
+          "created_at": {
+            "type": "string",
+            "example": "2026-06-03T05:18:57Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "example": "2026-06-03T05:19:14Z"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "nickname",
+          "status",
+          "is_super_admin",
+          "roles",
+          "posts",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "UserDetailResponseEnvelope": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "ok"
+          },
+          "data": {
+            "$ref": "#/components/schemas/UserDetailData"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      },
+      "CreateUserRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "operator131857"
+          },
+          "password": {
+            "type": "string",
+            "example": "Admin@123456"
+          },
+          "nickname": {
+            "type": "string",
+            "example": "操作员测试"
+          },
+          "real_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "联调测试用户"
+          },
+          "mobile": {
+            "type": "string",
+            "nullable": true,
+            "example": "13900001318"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "example": "operator131857@example.com"
+          },
+          "gender": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "example": 1
+          },
+          "dept_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "example": 110
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "example": 1
+          },
+          "remark": {
+            "type": "string",
+            "nullable": true,
+            "example": "APIFox 联调用临时用户"
+          }
+        },
+        "required": [
+          "username",
+          "password",
+          "nickname"
+        ]
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "nickname": {
+            "type": "string",
+            "nullable": true,
+            "example": "操作员测试-更新"
+          },
+          "real_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "联调测试用户"
+          },
+          "mobile": {
+            "type": "string",
+            "nullable": true,
+            "example": "13900001318"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "example": "operator131857@example.com"
+          },
+          "gender": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "example": 1
+          },
+          "dept_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "example": 120
+          },
+          "remark": {
+            "type": "string",
+            "nullable": true,
+            "example": "更新为运营中心"
+          }
+        }
+      },
+      "UpdateUserStatusRequest": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              0,
+              1
+            ],
+            "example": 0
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "UserMutationData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1030
+          },
+          "username": {
+            "type": "string",
+            "example": "operator131857"
+          }
+        },
+        "required": [
+          "id",
+          "username"
+        ]
+      },
+      "UserMutationResponseEnvelope": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "ok"
+          },
+          "data": {
+            "$ref": "#/components/schemas/UserMutationData"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      },
+      "UserStatusMutationData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1030
+          },
+          "username": {
+            "type": "string",
+            "example": "operator131857"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "status"
+        ]
+      },
+      "UserStatusMutationResponseEnvelope": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "ok"
+          },
+          "data": {
+            "$ref": "#/components/schemas/UserStatusMutationData"
           }
         },
         "required": [

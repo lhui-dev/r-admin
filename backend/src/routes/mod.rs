@@ -1,10 +1,13 @@
 use axum::{
     Router,
-    routing::{get, post},
+    routing::{get, patch, post},
 };
 
 use crate::{
-    modules::{auth::handler as auth_handler, health::handler as health_handler},
+    modules::{
+        auth::handler as auth_handler, health::handler as health_handler,
+        system_user::handler as system_user_handler,
+    },
     state::AppState,
 };
 
@@ -15,5 +18,17 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/auth/me", get(auth_handler::me))
         .route("/api/auth/menus", get(auth_handler::menus))
         .route("/api/auth/logout", post(auth_handler::logout))
+        .route(
+            "/api/system/users",
+            get(system_user_handler::list).post(system_user_handler::create),
+        )
+        .route(
+            "/api/system/users/{id}",
+            get(system_user_handler::detail).patch(system_user_handler::update),
+        )
+        .route(
+            "/api/system/users/{id}/status",
+            patch(system_user_handler::update_status),
+        )
         .with_state(state)
 }

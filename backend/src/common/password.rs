@@ -1,4 +1,7 @@
-use argon2::{Argon2, PasswordHash, PasswordVerifier, password_hash::Error as PasswordHashError};
+use argon2::{
+    Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
+    password_hash::{Error as PasswordHashError, SaltString, rand_core::OsRng},
+};
 use tracing::warn;
 
 use crate::common::error::{AppError, AppResult};
@@ -17,6 +20,15 @@ pub fn verify_password(password: &str, stored_hash: &str) -> AppResult<bool> {
     Ok(Argon2::default()
         .verify_password(password.as_bytes(), &parsed_hash)
         .is_ok())
+}
+
+pub fn hash_password(password: &str) -> AppResult<String> {
+    let salt = SaltString::generate(&mut OsRng);
+
+    Argon2::default()
+        .hash_password(password.as_bytes(), &salt)
+        .map(|value| value.to_string())
+        .map_err(map_hash_error)
 }
 
 fn map_hash_error(error: PasswordHashError) -> AppError {

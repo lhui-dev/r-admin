@@ -19,6 +19,8 @@ pub enum AppError {
     #[error("{0}")]
     Forbidden(String),
     #[error("{0}")]
+    Conflict(String),
+    #[error("{0}")]
     NotFound(String),
     #[error("internal server error")]
     Internal,
@@ -37,6 +39,10 @@ impl AppError {
         Self::Forbidden(message.into())
     }
 
+    pub fn conflict(message: impl Into<String>) -> Self {
+        Self::Conflict(message.into())
+    }
+
     pub fn not_found(message: impl Into<String>) -> Self {
         Self::NotFound(message.into())
     }
@@ -46,6 +52,7 @@ impl AppError {
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::Unauthorized(_) => StatusCode::UNAUTHORIZED,
             Self::Forbidden(_) => StatusCode::FORBIDDEN,
+            Self::Conflict(_) => StatusCode::CONFLICT,
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -56,6 +63,7 @@ impl AppError {
             Self::BadRequest(message)
             | Self::Unauthorized(message)
             | Self::Forbidden(message)
+            | Self::Conflict(message)
             | Self::NotFound(message) => message,
             Self::Internal => "internal server error",
         }

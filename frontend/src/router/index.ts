@@ -119,6 +119,42 @@ export const routes: RouteRecordRaw[] = [
         redirect: '/system/user',
       },
       {
+        path: 'placeholder/roles',
+        redirect: '/system/role',
+      },
+      {
+        path: 'placeholder/menus',
+        redirect: '/system/menu',
+      },
+      {
+        path: 'placeholder/departments',
+        redirect: '/system/dept',
+      },
+      {
+        path: 'placeholder/posts',
+        redirect: '/system/post',
+      },
+      {
+        path: 'placeholder/dicts',
+        redirect: '/system/dict',
+      },
+      {
+        path: 'placeholder/configs',
+        redirect: '/system/config',
+      },
+      {
+        path: 'placeholder/login-logs',
+        redirect: '/audit/login-log',
+      },
+      {
+        path: 'placeholder/audit-logs',
+        redirect: '/audit/operation-log',
+      },
+      {
+        path: 'placeholder/operation-log',
+        redirect: '/audit/operation-log',
+      },
+      {
         path: 'placeholder/:feature',
         name: 'placeholder',
         component: ConstructionView,

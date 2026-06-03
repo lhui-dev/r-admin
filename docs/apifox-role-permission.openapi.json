@@ -1,0 +1,497 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "r-admin Role Permission Config Debug API",
+    "version": "0.1.0",
+    "description": "Focused OpenAPI import file for APIFox. Covers the real backend endpoints used by the role permission configuration page."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8080",
+      "description": "Local backend service"
+    },
+    {
+      "url": "http://127.0.0.1:18080",
+      "description": "Local integration backend service"
+    }
+  ],
+  "tags": [
+    {
+      "name": "System Role Permission",
+      "description": "Role permission configuration endpoints for querying and saving a single role's permission set"
+    }
+  ],
+  "paths": {
+    "/api/system/roles/{id}/permission-config": {
+      "get": {
+        "tags": [
+          "System Role Permission"
+        ],
+        "summary": "Get role permission config",
+        "description": "Returns the role summary, full permission tree, and the checked leaf permission ids used by the frontend role permission configuration page.",
+        "operationId": "getSystemRolePermissionConfig",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Role id. For seeded data, `310` is `system_admin`.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 310
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Role permission config payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RolePermissionConfigResponseEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Role not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/roles/{id}/permissions": {
+      "put": {
+        "tags": [
+          "System Role Permission"
+        ],
+        "summary": "Update role permissions",
+        "description": "Overwrites the role's leaf permission set in a transaction and returns the latest role summary with checked permissions.",
+        "operationId": "putSystemRolePermissions",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Role id. For seeded data, `310` is `system_admin`.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 310
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRolePermissionsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role permissions updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RolePermissionMutationResponseEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Role not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Illegal permission code submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "RolePermissionSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "system:role:assign-permission"
+          },
+          "name": {
+            "type": "string",
+            "example": "角色分配权限"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "RolePermissionTreeNode": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "menu:21020"
+          },
+          "name": {
+            "type": "string",
+            "example": "角色管理"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "module",
+              "menu",
+              "button",
+              "api"
+            ],
+            "example": "menu"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RolePermissionTreeNode"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "children"
+        ]
+      },
+      "RolePermissionConfigRole": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 310
+          },
+          "code": {
+            "type": "string",
+            "example": "system_admin"
+          },
+          "name": {
+            "type": "string",
+            "example": "系统管理员"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "data_scope": {
+            "type": "string",
+            "example": "department"
+          },
+          "sort": {
+            "type": "integer",
+            "format": "int32",
+            "example": 10
+          },
+          "is_builtin": {
+            "type": "boolean",
+            "example": true
+          },
+          "user_count": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
+          "permission_count": {
+            "type": "integer",
+            "format": "int64",
+            "example": 27
+          },
+          "remark": {
+            "type": "string",
+            "nullable": true,
+            "example": "系统内置系统管理员角色"
+          },
+          "created_at": {
+            "type": "string",
+            "example": "2026-05-31T14:43:34Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "example": "2026-06-03T15:00:08Z"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status",
+          "data_scope",
+          "sort",
+          "is_builtin",
+          "user_count",
+          "permission_count",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "RolePermissionConfigData": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/RolePermissionConfigRole"
+          },
+          "permission_tree": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RolePermissionTreeNode"
+            }
+          },
+          "checked_permission_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "role",
+          "permission_tree",
+          "checked_permission_ids"
+        ]
+      },
+      "RolePermissionConfigResponseEnvelope": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "ok"
+          },
+          "data": {
+            "$ref": "#/components/schemas/RolePermissionConfigData"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      },
+      "UpdateRolePermissionsRequest": {
+        "type": "object",
+        "properties": {
+          "permission_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "dashboard:view",
+              "system:role:assign-permission",
+              "system:user:list"
+            ]
+          }
+        },
+        "required": [
+          "permission_ids"
+        ]
+      },
+      "RolePermissionMutationData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 310
+          },
+          "code": {
+            "type": "string",
+            "example": "system_admin"
+          },
+          "name": {
+            "type": "string",
+            "example": "系统管理员"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "data_scope": {
+            "type": "string",
+            "example": "department"
+          },
+          "sort": {
+            "type": "integer",
+            "format": "int32",
+            "example": 10
+          },
+          "is_builtin": {
+            "type": "boolean",
+            "example": true
+          },
+          "user_count": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
+          "permission_count": {
+            "type": "integer",
+            "format": "int64",
+            "example": 27
+          },
+          "remark": {
+            "type": "string",
+            "nullable": true,
+            "example": "系统内置系统管理员角色"
+          },
+          "created_at": {
+            "type": "string",
+            "example": "2026-05-31T14:43:34Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "example": "2026-06-03T15:00:08Z"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RolePermissionSummary"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status",
+          "data_scope",
+          "sort",
+          "is_builtin",
+          "user_count",
+          "permission_count",
+          "created_at",
+          "updated_at",
+          "permissions"
+        ]
+      },
+      "RolePermissionMutationResponseEnvelope": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "ok"
+          },
+          "data": {
+            "$ref": "#/components/schemas/RolePermissionMutationData"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 404
+          },
+          "message": {
+            "type": "string",
+            "example": "role not found"
+          },
+          "data": {
+            "nullable": true
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      }
+    }
+  }
+}

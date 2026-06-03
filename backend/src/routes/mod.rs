@@ -1,11 +1,12 @@
 use axum::{
     Router,
-    routing::{get, patch, post},
+    routing::{get, patch, post, put},
 };
 
 use crate::{
     modules::{
         auth::handler as auth_handler, health::handler as health_handler,
+        system_role::handler as system_role_handler,
         system_user::handler as system_user_handler,
     },
     state::AppState,
@@ -29,6 +30,14 @@ pub fn build_router(state: AppState) -> Router {
         .route(
             "/api/system/users/{id}/status",
             patch(system_user_handler::update_status),
+        )
+        .route(
+            "/api/system/roles/{id}/permission-config",
+            get(system_role_handler::permission_config),
+        )
+        .route(
+            "/api/system/roles/{id}/permissions",
+            put(system_role_handler::update_permissions),
         )
         .with_state(state)
 }

@@ -1,3 +1,5 @@
+import request from '@/utils/request'
+
 interface ApiResponse<T> {
   code: number
   message: string
@@ -93,98 +95,78 @@ type InternalRoleRecord = RoleDetailData
 
 const roleStore: InternalRoleRecord[] = [
   {
-    id: 1,
+    id: 300,
     code: 'super_admin',
     name: '超级管理员',
     status: 1,
     data_scope: 'all',
     sort: 1,
     is_builtin: true,
-    user_count: 2,
-    permission_count: 48,
+    user_count: 1,
+    permission_count: 34,
     remark: '拥有系统全部菜单与操作权限。',
-    created_at: '2026-05-01 09:00:00',
-    updated_at: '2026-06-03 10:20:00',
+    created_at: '2026-05-31T14:43:34Z',
+    updated_at: '2026-06-03T14:43:34Z',
     permissions: [
-      { id: 'dashboard:view', name: '工作台查看' },
-      { id: 'system:user:list', name: '用户管理' },
-      { id: 'system:role:list', name: '角色管理' },
-      { id: 'system:menu:list', name: '菜单管理' },
+      { id: 'dashboard:view', name: '首页查看' },
+      { id: 'system:user:list', name: '用户列表' },
+      { id: 'system:role:list', name: '角色列表' },
+      { id: 'system:menu:list', name: '菜单列表' },
     ],
   },
   {
-    id: 2,
-    code: 'tenant_admin',
-    name: '租户管理员',
+    id: 310,
+    code: 'system_admin',
+    name: '系统管理员',
     status: 1,
-    data_scope: 'tenant',
-    sort: 5,
-    is_builtin: true,
-    user_count: 6,
-    permission_count: 26,
-    remark: '负责租户内用户、角色和菜单的基础维护。',
-    created_at: '2026-05-03 11:30:00',
-    updated_at: '2026-06-02 16:10:00',
-    permissions: [
-      { id: 'system:user:list', name: '用户管理' },
-      { id: 'system:role:list', name: '角色管理' },
-      { id: 'system:dept:list', name: '部门管理' },
-    ],
-  },
-  {
-    id: 3,
-    code: 'security_auditor',
-    name: '安全审计员',
-    status: 1,
-    data_scope: 'custom',
-    sort: 20,
-    is_builtin: false,
-    user_count: 3,
-    permission_count: 12,
-    remark: '查看登录日志、操作日志与关键配置变更记录。',
-    created_at: '2026-05-12 14:20:00',
-    updated_at: '2026-06-01 18:30:00',
-    permissions: [
-      { id: 'system:log:login:list', name: '登录日志查看' },
-      { id: 'system:log:operation:list', name: '操作日志查看' },
-      { id: 'audit:center:view', name: '审计中心查看' },
-    ],
-  },
-  {
-    id: 4,
-    code: 'ops_manager',
-    name: '运营经理',
-    status: 0,
     data_scope: 'department',
-    sort: 30,
-    is_builtin: false,
-    user_count: 4,
-    permission_count: 9,
-    remark: '用于运营团队成员管理和基础数据查看。',
-    created_at: '2026-05-15 09:45:00',
-    updated_at: '2026-05-28 12:05:00',
+    sort: 10,
+    is_builtin: true,
+    user_count: 1,
+    permission_count: 27,
+    remark: '系统内置系统管理员角色',
+    created_at: '2026-05-31T14:43:34Z',
+    updated_at: '2026-06-03T14:48:16Z',
     permissions: [
-      { id: 'dashboard:view', name: '工作台查看' },
-      { id: 'system:user:list', name: '用户管理' },
-      { id: 'system:dept:list', name: '部门管理' },
+      { id: 'system:user:list', name: '用户列表' },
+      { id: 'system:role:list', name: '角色列表' },
+      { id: 'system:role:assign-permission', name: '角色分配权限' },
     ],
   },
   {
-    id: 5,
-    code: 'readonly_guest',
-    name: '只读访客',
+    id: 320,
+    code: 'auditor',
+    name: '审计员',
+    status: 1,
+    data_scope: 'all',
+    sort: 20,
+    is_builtin: true,
+    user_count: 1,
+    permission_count: 3,
+    remark: '系统内置审计角色',
+    created_at: '2026-05-31T14:43:34Z',
+    updated_at: '2026-06-03T14:43:34Z',
+    permissions: [
+      { id: 'dashboard:view', name: '首页查看' },
+      { id: 'system:log:login:list', name: '登录日志列表' },
+      { id: 'system:log:operation:list', name: '操作日志列表' },
+    ],
+  },
+  {
+    id: 330,
+    code: 'operator',
+    name: '普通操作员',
     status: 1,
     data_scope: 'self',
-    sort: 50,
-    is_builtin: false,
-    user_count: 8,
-    permission_count: 4,
-    remark: '仅允许访问个人资料与部分概览信息。',
-    created_at: '2026-05-18 13:15:00',
-    updated_at: '2026-05-31 17:20:00',
+    sort: 30,
+    is_builtin: true,
+    user_count: 0,
+    permission_count: 1,
+    remark: '系统内置普通操作角色',
+    created_at: '2026-05-31T14:43:34Z',
+    updated_at: '2026-06-03T14:43:34Z',
     permissions: [
-      { id: 'dashboard:view', name: '工作台查看' },
-      { id: 'profile:view', name: '个人资料查看' },
+      { id: 'dashboard:view', name: '首页查看' },
     ],
   },
 ]
@@ -200,8 +182,7 @@ const permissionTreeStore: RolePermissionTreeNode[] = [
         name: '工作台页面',
         type: 'menu',
         children: [
-          { id: 'dashboard:view', name: '查看工作台', type: 'button' },
-          { id: 'dashboard:refresh', name: '刷新看板', type: 'button' },
+          { id: 'dashboard:view', name: '首页查看', type: 'button' },
         ],
       },
     ],
@@ -216,10 +197,12 @@ const permissionTreeStore: RolePermissionTreeNode[] = [
         name: '用户管理',
         type: 'menu',
         children: [
-          { id: 'system:user:list', name: '查看用户列表', type: 'button' },
-          { id: 'system:user:create', name: '新增用户', type: 'button' },
-          { id: 'system:user:update', name: '编辑用户', type: 'button' },
-          { id: 'system:user:status', name: '启停用户', type: 'button' },
+          { id: 'system:user:list', name: '用户列表', type: 'button' },
+          { id: 'system:user:create', name: '用户新增', type: 'button' },
+          { id: 'system:user:update', name: '用户修改', type: 'button' },
+          { id: 'system:user:delete', name: '用户删除', type: 'button' },
+          { id: 'system:user:reset-password', name: '用户重置密码', type: 'button' },
+          { id: 'system:user:assign-role', name: '用户分配角色', type: 'button' },
         ],
       },
       {
@@ -227,10 +210,11 @@ const permissionTreeStore: RolePermissionTreeNode[] = [
         name: '角色管理',
         type: 'menu',
         children: [
-          { id: 'system:role:list', name: '查看角色列表', type: 'button' },
-          { id: 'system:role:create', name: '新增角色', type: 'button' },
-          { id: 'system:role:update', name: '编辑角色', type: 'button' },
-          { id: 'system:role:permission', name: '配置角色权限', type: 'button' },
+          { id: 'system:role:list', name: '角色列表', type: 'button' },
+          { id: 'system:role:create', name: '角色新增', type: 'button' },
+          { id: 'system:role:update', name: '角色修改', type: 'button' },
+          { id: 'system:role:delete', name: '角色删除', type: 'button' },
+          { id: 'system:role:assign-permission', name: '角色分配权限', type: 'button' },
         ],
       },
       {
@@ -238,8 +222,10 @@ const permissionTreeStore: RolePermissionTreeNode[] = [
         name: '菜单管理',
         type: 'menu',
         children: [
-          { id: 'system:menu:list', name: '查看菜单列表', type: 'button' },
-          { id: 'system:menu:update', name: '编辑菜单', type: 'button' },
+          { id: 'system:menu:list', name: '菜单列表', type: 'button' },
+          { id: 'system:menu:create', name: '菜单新增', type: 'button' },
+          { id: 'system:menu:update', name: '菜单修改', type: 'button' },
+          { id: 'system:menu:delete', name: '菜单删除', type: 'button' },
         ],
       },
       {
@@ -247,8 +233,43 @@ const permissionTreeStore: RolePermissionTreeNode[] = [
         name: '部门管理',
         type: 'menu',
         children: [
-          { id: 'system:dept:list', name: '查看部门列表', type: 'button' },
-          { id: 'system:dept:update', name: '编辑部门', type: 'button' },
+          { id: 'system:dept:list', name: '部门列表', type: 'button' },
+          { id: 'system:dept:create', name: '部门新增', type: 'button' },
+          { id: 'system:dept:update', name: '部门修改', type: 'button' },
+          { id: 'system:dept:delete', name: '部门删除', type: 'button' },
+        ],
+      },
+      {
+        id: 'menu:system:post',
+        name: '岗位管理',
+        type: 'menu',
+        children: [
+          { id: 'system:post:list', name: '岗位列表', type: 'button' },
+          { id: 'system:post:create', name: '岗位新增', type: 'button' },
+          { id: 'system:post:update', name: '岗位修改', type: 'button' },
+          { id: 'system:post:delete', name: '岗位删除', type: 'button' },
+        ],
+      },
+      {
+        id: 'menu:system:dict',
+        name: '字典管理',
+        type: 'menu',
+        children: [
+          { id: 'system:dict:list', name: '字典列表', type: 'button' },
+          { id: 'system:dict:create', name: '字典新增', type: 'button' },
+          { id: 'system:dict:update', name: '字典修改', type: 'button' },
+          { id: 'system:dict:delete', name: '字典删除', type: 'button' },
+        ],
+      },
+      {
+        id: 'menu:system:config',
+        name: '参数配置',
+        type: 'menu',
+        children: [
+          { id: 'system:config:list', name: '参数列表', type: 'button' },
+          { id: 'system:config:create', name: '参数新增', type: 'button' },
+          { id: 'system:config:update', name: '参数修改', type: 'button' },
+          { id: 'system:config:delete', name: '参数删除', type: 'button' },
         ],
       },
     ],
@@ -263,7 +284,7 @@ const permissionTreeStore: RolePermissionTreeNode[] = [
         name: '登录日志',
         type: 'menu',
         children: [
-          { id: 'system:log:login:list', name: '查看登录日志', type: 'button' },
+          { id: 'system:log:login:list', name: '登录日志列表', type: 'button' },
         ],
       },
       {
@@ -271,23 +292,7 @@ const permissionTreeStore: RolePermissionTreeNode[] = [
         name: '操作日志',
         type: 'menu',
         children: [
-          { id: 'system:log:operation:list', name: '查看操作日志', type: 'button' },
-          { id: 'audit:center:view', name: '查看审计中心', type: 'button' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'module:profile',
-    name: '个人中心',
-    type: 'module',
-    children: [
-      {
-        id: 'menu:profile:view',
-        name: '个人信息',
-        type: 'menu',
-        children: [
-          { id: 'profile:view', name: '查看个人信息', type: 'button' },
+          { id: 'system:log:operation:list', name: '操作日志列表', type: 'button' },
         ],
       },
     ],
@@ -422,6 +427,17 @@ export async function updateSystemRoleStatus(roleId: number, status: number) {
 }
 
 export async function fetchSystemRolePermissionConfig(roleId: number) {
+  try {
+    return await request.get<ApiResponse<RolePermissionConfigData>, ApiResponse<RolePermissionConfigData>>(
+      `/system/roles/${roleId}/permission-config`,
+    )
+  }
+  catch (error) {
+    if (!shouldFallbackToMock(error)) {
+      throw error
+    }
+  }
+
   await sleep(120)
 
   const role = roleStore.find(item => item.id === roleId)
@@ -437,6 +453,18 @@ export async function fetchSystemRolePermissionConfig(roleId: number) {
 }
 
 export async function updateSystemRolePermissions(roleId: number, payload: UpdateRolePermissionsPayload) {
+  try {
+    return await request.put<ApiResponse<RoleDetailData>, ApiResponse<RoleDetailData>>(
+      `/system/roles/${roleId}/permissions`,
+      payload,
+    )
+  }
+  catch (error) {
+    if (!shouldFallbackToMock(error)) {
+      throw error
+    }
+  }
+
   await sleep(120)
 
   const role = roleStore.find(item => item.id === roleId)
@@ -504,6 +532,20 @@ function currentTimestamp() {
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function shouldFallbackToMock(error: unknown) {
+  if (typeof error !== 'object' || error === null) {
+    return false
+  }
+
+  const responseCode = Number((error as { code?: unknown }).code ?? Number.NaN)
+  const message = String((error as { message?: unknown }).message ?? '')
+
+  return responseCode === 404
+    || message.includes('Network Error')
+    || message.includes('timeout')
+    || message.includes('ERR_NETWORK')
 }
 
 function clonePermissionTree(tree: RolePermissionTreeNode[]): RolePermissionTreeNode[] {

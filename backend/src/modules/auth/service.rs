@@ -377,21 +377,24 @@ fn normalize_menu_path(row: &MenuRow) -> Option<String> {
         return None;
     }
 
+    // Prefer the seeded route_path when the frontend already has a matching
+    // route. This keeps dynamic menus aligned with the actual app navigation
+    // instead of bouncing users through legacy placeholder URLs.
     if let Some(path) = map_supported_frontend_path(row.route_path.as_deref()) {
         return Some(path.to_string());
     }
 
     match row.permission_code.as_deref() {
         Some("dashboard:view") => Some("/dashboard".to_string()),
-        Some("system:user:list") => Some("/placeholder/users".to_string()),
-        Some("system:role:list") => Some("/placeholder/roles".to_string()),
-        Some("system:menu:list") => Some("/placeholder/menus".to_string()),
-        Some("system:dept:list") => Some("/placeholder/departments".to_string()),
-        Some("system:post:list") => Some("/placeholder/posts".to_string()),
-        Some("system:dict:list") => Some("/placeholder/dicts".to_string()),
-        Some("system:config:list") => Some("/system".to_string()),
-        Some("system:log:login:list") => Some("/placeholder/login-logs".to_string()),
-        Some("system:log:operation:list") => Some("/placeholder/audit-logs".to_string()),
+        Some("system:user:list") => Some("/system/user".to_string()),
+        Some("system:role:list") => Some("/system/role".to_string()),
+        Some("system:menu:list") => Some("/system/menu".to_string()),
+        Some("system:dept:list") => Some("/system/dept".to_string()),
+        Some("system:post:list") => Some("/system/post".to_string()),
+        Some("system:dict:list") => Some("/system/dict".to_string()),
+        Some("system:config:list") => Some("/system/config".to_string()),
+        Some("system:log:login:list") => Some("/audit/login-log".to_string()),
+        Some("system:log:operation:list") => Some("/audit/operation-log".to_string()),
         _ => row
             .route_path
             .as_deref()
@@ -403,7 +406,16 @@ fn normalize_menu_path(row: &MenuRow) -> Option<String> {
 fn map_supported_frontend_path(route_path: Option<&str>) -> Option<&'static str> {
     match route_path {
         Some("/dashboard") | Some("/dashboard/workbench") => Some("/dashboard"),
-        Some("/system") | Some("/system/config") => Some("/system"),
+        Some("/system") => Some("/system"),
+        Some("/system/user") => Some("/system/user"),
+        Some("/system/role") => Some("/system/role"),
+        Some("/system/menu") => Some("/system/menu"),
+        Some("/system/dept") => Some("/system/dept"),
+        Some("/system/post") => Some("/system/post"),
+        Some("/system/dict") => Some("/system/dict"),
+        Some("/system/config") => Some("/system/config"),
+        Some("/audit/login-log") => Some("/audit/login-log"),
+        Some("/audit/operation-log") => Some("/audit/operation-log"),
         Some("/profile") => Some("/profile"),
         _ => None,
     }
@@ -508,5 +520,19 @@ mod tests {
             normalize_menu_path(&menu).as_deref(),
             Some("/placeholder/operation-log")
         );
+    }
+
+    #[test]
+    fn normalize_menu_path_prefers_supported_frontend_routes() {
+        let menu = menu_row(
+            21020,
+            21000,
+            "角色管理",
+            "menu",
+            Some("/system/role"),
+            Some("system:role:list"),
+        );
+
+        assert_eq!(normalize_menu_path(&menu).as_deref(), Some("/system/role"));
     }
 }

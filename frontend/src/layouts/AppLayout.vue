@@ -18,6 +18,12 @@ import { ElMessage } from 'element-plus'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import {
+  isRouteActive,
+  resolveActiveTopNavKey,
+  resolveTopNavItems,
+  type AppTopNavItem,
+} from '@/router/menu-access'
 import { useAuthStore } from '@/stores/auth'
 import { useMenuStore } from '@/stores/menu'
 import type { AppMenuItem } from '@/types/menu'
@@ -26,14 +32,6 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const menuStore = useMenuStore()
-
-type NavItem = {
-  key: string
-  label: string
-  icon?: unknown
-  path?: string
-  description?: string
-}
 
 type NavSection = {
   title: string
@@ -46,15 +44,6 @@ const layoutStyle = computed(() => ({
   '--app-header-height': '64px',
   '--app-sidebar-width': collapsed.value ? '60px' : '196px',
 }))
-
-const topNavItems: NavItem[] = [
-  { key: 'workspace', label: '工作台', path: '/dashboard' },
-  { key: 'permission', label: '权限中心', path: '/placeholder/permission-center' },
-  { key: 'organization', label: '组织架构', path: '/placeholder/organization' },
-  { key: 'audit', label: '审计中心', path: '/placeholder/audit-center' },
-  { key: 'settings', label: '系统配置', path: '/system' },
-  { key: 'profile', label: '个人中心', path: '/profile' },
-]
 
 const menuIconMap: Record<string, unknown> = {
   histogram: Histogram,
@@ -70,6 +59,7 @@ const menuIconMap: Record<string, unknown> = {
 const activePath = computed(() => route.path)
 const userDisplayName = computed(() => authStore.displayName)
 const userAvatarText = computed(() => authStore.avatarText)
+const topNavItems = computed<AppTopNavItem[]>(() => resolveTopNavItems(menuStore.visibleMenuTree))
 const sidebarSections = computed<NavSection[]>(() => {
   return menuStore.visibleMenuTree
     .map((section) => ({
@@ -78,41 +68,13 @@ const sidebarSections = computed<NavSection[]>(() => {
     }))
     .filter((section) => section.items.length > 0)
 })
-const activeTopNavKey = computed(() => {
-  if (route.path.startsWith('/system')) {
-    return 'settings'
-  }
+const activeTopNavKey = computed(() => resolveActiveTopNavKey(route.path))
 
-  if (route.path.startsWith('/profile')) {
-    return 'profile'
-  }
-
-  if (route.path.startsWith('/placeholder/permission-center')) {
-    return 'permission'
-  }
-
-  if (route.path.startsWith('/placeholder/organization')) {
-    return 'organization'
-  }
-
-  if (route.path.startsWith('/placeholder/audit-center')) {
-    return 'audit'
-  }
-
-  if (route.path.startsWith('/dashboard')) {
-    return 'workspace'
-  }
-
-  return 'workspace'
-})
-
-function handleRoute(path?: string, description?: string) {
+function handleRoute(path?: string) {
   if (path) {
     void router.push(path)
     return
   }
-
-  ElMessage.info(description ?? '功能建设中。')
 }
 
 async function handleUserCommand(command: string) {
@@ -152,22 +114,6 @@ function handleContentScroll(event: Event) {
 function resolveMenuIcon(icon?: string) {
   return (icon && menuIconMap[icon]) || Document
 }
-
-function isMenuItemActive(itemPath?: string) {
-  if (!itemPath) {
-    return false
-  }
-
-  if (activePath.value === itemPath) {
-    return true
-  }
-
-  if (itemPath === '/system/role' && activePath.value.startsWith('/system/role/')) {
-    return true
-  }
-
-  return false
-}
 </script>
 
 <template>
@@ -196,7 +142,7 @@ function isMenuItemActive(itemPath?: string) {
             type="button"
             class="app-layout__top-nav-item"
             :class="{ 'is-active': item.key === activeTopNavKey }"
-            @click="handleRoute(item.path, item.description)"
+            @click="handleRoute(item.path)"
           >
             {{ item.label }}
           </button>
@@ -207,7 +153,7 @@ function isMenuItemActive(itemPath?: string) {
         <button
           type="button"
           class="app-layout__toolbar-button"
-          @click="handleRoute(undefined, '通知中心仍在建设中。')"
+          @click="ElMessage.info('通知中心仍在建设中。')"
         >
           <el-badge :value="2">
             <el-icon><Bell /></el-icon>
@@ -217,7 +163,7 @@ function isMenuItemActive(itemPath?: string) {
         <button
           type="button"
           class="app-layout__toolbar-button"
-          @click="handleRoute(undefined, '桌面布局切换会在后续版本接入。')"
+          @click="ElMessage.info('桌面布局切换会在后续版本接入。')"
         >
           <el-icon><Monitor /></el-icon>
         </button>
@@ -313,9 +259,9 @@ function isMenuItemActive(itemPath?: string) {
             :key="item.id"
             type="button"
             class="app-layout__nav-item"
-            :class="{ 'is-active': isMenuItemActive(item.path) }"
+            :class="{ 'is-active': isRouteActive(activePath, item.path) }"
             :title="collapsed ? item.title : ''"
-            @click="handleRoute(item.path, item.description)"
+            @click="handleRoute(item.path)"
           >
             <el-icon class="app-layout__nav-icon"><component :is="resolveMenuIcon(item.icon)" /></el-icon>
             <span v-show="!collapsed">{{ item.title }}</span>

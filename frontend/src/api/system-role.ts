@@ -343,7 +343,7 @@ export async function fetchSystemRoles(params: RoleListQuery) {
 export async function fetchSystemRoleDetail(roleId: number) {
   await sleep(120)
 
-  const role = roleStore.find(item => item.id === roleId)
+  const role = findLocalRole(roleId)
   if (!role) {
     throw new Error('角色详情不存在')
   }
@@ -389,7 +389,7 @@ export async function createSystemRole(payload: CreateRolePayload) {
 export async function updateSystemRole(roleId: number, payload: UpdateRolePayload) {
   await sleep(120)
 
-  const role = roleStore.find(item => item.id === roleId)
+  const role = findLocalRole(roleId)
   if (!role) {
     throw new Error('角色不存在，无法更新')
   }
@@ -410,7 +410,7 @@ export async function updateSystemRole(roleId: number, payload: UpdateRolePayloa
 export async function updateSystemRoleStatus(roleId: number, status: number) {
   await sleep(120)
 
-  const role = roleStore.find(item => item.id === roleId)
+  const role = findLocalRole(roleId)
   if (!role) {
     throw new Error('角色不存在，无法变更状态')
   }
@@ -428,9 +428,22 @@ export async function updateSystemRoleStatus(roleId: number, status: number) {
 
 export async function fetchSystemRolePermissionConfig(roleId: number) {
   try {
-    return await request.get<ApiResponse<RolePermissionConfigData>, ApiResponse<RolePermissionConfigData>>(
+    const response = await request.get<ApiResponse<RolePermissionConfigData>, ApiResponse<RolePermissionConfigData>>(
       `/system/roles/${roleId}/permission-config`,
     )
+
+    const mergedRole = mergeRoleDetailWithLocal(
+      roleId,
+      response.data.role,
+      response.data.checked_permission_ids,
+    )
+
+    syncLocalRole(mergedRole)
+
+    return buildResponse<RolePermissionConfigData>({
+      ...response.data,
+      role: mergedRole,
+    })
   }
   catch (error) {
     if (!shouldFallbackToMock(error)) {
@@ -440,7 +453,7 @@ export async function fetchSystemRolePermissionConfig(roleId: number) {
 
   await sleep(120)
 
-  const role = roleStore.find(item => item.id === roleId)
+  const role = findLocalRole(roleId)
   if (!role) {
     throw new Error('角色不存在，无法加载权限配置')
   }
@@ -454,10 +467,20 @@ export async function fetchSystemRolePermissionConfig(roleId: number) {
 
 export async function updateSystemRolePermissions(roleId: number, payload: UpdateRolePermissionsPayload) {
   try {
-    return await request.put<ApiResponse<RoleDetailData>, ApiResponse<RoleDetailData>>(
+    const response = await request.put<ApiResponse<RoleDetailData>, ApiResponse<RoleDetailData>>(
       `/system/roles/${roleId}/permissions`,
       payload,
     )
+
+    const mergedRole = mergeRoleDetailWithLocal(
+      roleId,
+      response.data,
+      response.data.permissions?.map(item => item.id) ?? [],
+    )
+
+    syncLocalRole(mergedRole)
+
+    return buildResponse<RoleDetailData>(mergedRole)
   }
   catch (error) {
     if (!shouldFallbackToMock(error)) {
@@ -467,7 +490,7 @@ export async function updateSystemRolePermissions(roleId: number, payload: Updat
 
   await sleep(120)
 
-  const role = roleStore.find(item => item.id === roleId)
+  const role = findLocalRole(roleId)
   if (!role) {
     throw new Error('角色不存在，无法保存权限配置')
   }
@@ -488,6 +511,57 @@ export async function updateSystemRolePermissions(roleId: number, payload: Updat
     ...role,
     permissions: [...role.permissions],
   })
+}
+
+function findLocalRole(roleId: number) {
+  return roleStore.find(item => item.id === roleId)
+}
+
+function syncLocalRole(nextRole: RoleDetailData) {
+  const target = findLocalRole(nextRole.id)
+  if (!target) {
+    roleStore.push({
+      ...nextRole,
+      permissions: [...nextRole.permissions],
+    })
+    return
+  }
+
+  Object.assign(target, {
+    ...nextRole,
+    permissions: [...nextRole.permissions],
+  })
+}
+
+function mergeRoleDetailWithLocal(
+  roleId: number,
+  remoteRole: RoleDetailData,
+  checkedPermissionIds: string[],
+): RoleDetailData {
+  const localRole = findLocalRole(roleId)
+  const fallbackPermissions = checkedPermissionIds.map(permissionId => ({
+    id: permissionId,
+    name: resolvePermissionName(permissionId),
+  }))
+  const mergedPermissions = Array.isArray(remoteRole.permissions) && remoteRole.permissions.length
+    ? [...remoteRole.permissions]
+    : [...(localRole?.permissions ?? fallbackPermissions)]
+
+  return {
+    id: remoteRole.id,
+    code: localRole?.code ?? remoteRole.code,
+    name: localRole?.name ?? remoteRole.name,
+    status: localRole?.status ?? remoteRole.status,
+    data_scope: localRole?.data_scope ?? remoteRole.data_scope,
+    sort: localRole?.sort ?? remoteRole.sort,
+    is_builtin: localRole?.is_builtin ?? remoteRole.is_builtin,
+    user_count: remoteRole.user_count ?? localRole?.user_count ?? 0,
+    permission_count: remoteRole.permission_count ?? mergedPermissions.length,
+    remark: localRole?.remark ?? remoteRole.remark ?? null,
+    created_at: localRole?.created_at ?? remoteRole.created_at,
+    updated_at: localRole?.updated_at ?? remoteRole.updated_at,
+    permissions: mergedPermissions,
+  }
 }
 
 function toRoleListItem(role: InternalRoleRecord): RoleListItem {
@@ -539,10 +613,17 @@ function shouldFallbackToMock(error: unknown) {
     return false
   }
 
-  const responseCode = Number((error as { code?: unknown }).code ?? Number.NaN)
-  const message = String((error as { message?: unknown }).message ?? '')
+  const record = error as {
+    code?: unknown
+    message?: unknown
+    response?: { status?: unknown }
+  }
+  const responseCode = Number(record.code ?? Number.NaN)
+  const responseStatus = Number(record.response?.status ?? Number.NaN)
+  const message = String(record.message ?? '')
 
   return responseCode === 404
+    || responseStatus === 404
     || message.includes('Network Error')
     || message.includes('timeout')
     || message.includes('ERR_NETWORK')
@@ -553,6 +634,11 @@ function clonePermissionTree(tree: RolePermissionTreeNode[]): RolePermissionTree
     ...node,
     children: node.children ? clonePermissionTree(node.children) : undefined,
   }))
+}
+
+function resolvePermissionName(permissionId: string) {
+  return flattenPermissionLeaves(permissionTreeStore)
+    .find(item => item.id === permissionId)?.name ?? permissionId
 }
 
 function flattenPermissionLeaves(tree: RolePermissionTreeNode[]): Array<{ id: string, name: string }> {

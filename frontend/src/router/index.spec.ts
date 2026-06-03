@@ -75,4 +75,95 @@ describe('auth router guards', () => {
 
     expect(router.currentRoute.value.path).toBe('/dashboard')
   })
+
+  it('redirects legacy placeholder menu paths to their real routed pages', async () => {
+    const authStore = useAuthStore(pinia)
+    const menuStore = useMenuStore(pinia)
+    authStore.accessToken = 'active-token'
+    authStore.currentUser = mockUser
+    menuStore.setMenus([
+      {
+        id: 'system',
+        name: 'system',
+        title: '系统管理',
+        children: [
+          {
+            id: 'roles',
+            name: 'roles',
+            title: '角色管理',
+            path: '/system/role',
+          },
+        ],
+      },
+    ])
+
+    const router = createAppRouter(createMemoryHistory())
+    await router.push('/placeholder/roles')
+
+    expect(router.currentRoute.value.path).toBe('/system/role')
+  })
+
+  it('returns to the first accessible menu route when the target page is not allowed', async () => {
+    const authStore = useAuthStore(pinia)
+    const menuStore = useMenuStore(pinia)
+    authStore.accessToken = 'active-token'
+    authStore.currentUser = {
+      ...mockUser,
+      is_super_admin: false,
+    }
+    authStore.permissions = ['dashboard:view']
+    menuStore.setMenus([
+      {
+        id: 'workspace',
+        name: 'workspace',
+        title: '工作台',
+        children: [
+          {
+            id: 'dashboard',
+            name: 'dashboard',
+            title: '工作台',
+            path: '/dashboard',
+            permission: 'dashboard:view',
+          },
+        ],
+      },
+    ])
+
+    const router = createAppRouter(createMemoryHistory())
+    await router.push('/system/role')
+
+    expect(router.currentRoute.value.path).toBe('/dashboard')
+  })
+
+  it('allows the role permission page when the required permission is present', async () => {
+    const authStore = useAuthStore(pinia)
+    const menuStore = useMenuStore(pinia)
+    authStore.accessToken = 'active-token'
+    authStore.currentUser = {
+      ...mockUser,
+      is_super_admin: false,
+    }
+    authStore.permissions = ['system:role:assign-permission']
+    menuStore.setMenus([
+      {
+        id: 'system',
+        name: 'system',
+        title: '系统管理',
+        children: [
+          {
+            id: 'roles',
+            name: 'roles',
+            title: '角色管理',
+            path: '/system/role',
+            permission: 'system:role:list',
+          },
+        ],
+      },
+    ])
+
+    const router = createAppRouter(createMemoryHistory())
+    await router.push('/system/role/310/permission')
+
+    expect(router.currentRoute.value.path).toBe('/system/role/310/permission')
+  })
 })

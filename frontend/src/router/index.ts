@@ -15,6 +15,7 @@ import NotFoundView from '@/views/not-found/NotFoundView.vue'
 import ConstructionView from '@/views/placeholder/ConstructionView.vue'
 import ProfileView from '@/views/profile/ProfileView.vue'
 import SystemView from '@/views/system/SystemView.vue'
+import UserManagementView from '@/views/system/user/UserManagementView.vue'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -36,9 +37,82 @@ export const routes: RouteRecordRaw[] = [
         component: SystemView,
       },
       {
+        path: 'system/user',
+        name: 'system-user',
+        component: UserManagementView,
+      },
+      {
+        path: 'system/role',
+        name: 'system-role',
+        component: ConstructionView,
+        meta: {
+          featureKey: 'roles',
+        },
+      },
+      {
+        path: 'system/menu',
+        name: 'system-menu',
+        component: ConstructionView,
+        meta: {
+          featureKey: 'menus',
+        },
+      },
+      {
+        path: 'system/dept',
+        name: 'system-dept',
+        component: ConstructionView,
+        meta: {
+          featureKey: 'departments',
+        },
+      },
+      {
+        path: 'system/post',
+        name: 'system-post',
+        component: ConstructionView,
+        meta: {
+          featureKey: 'posts',
+        },
+      },
+      {
+        path: 'system/dict',
+        name: 'system-dict',
+        component: ConstructionView,
+        meta: {
+          featureKey: 'dictionaries',
+        },
+      },
+      {
+        path: 'system/config',
+        name: 'system-config',
+        component: ConstructionView,
+        meta: {
+          featureKey: 'configs',
+        },
+      },
+      {
+        path: 'audit/login-log',
+        name: 'audit-login-log',
+        component: ConstructionView,
+        meta: {
+          featureKey: 'login-logs',
+        },
+      },
+      {
+        path: 'audit/operation-log',
+        name: 'audit-operation-log',
+        component: ConstructionView,
+        meta: {
+          featureKey: 'operation-logs',
+        },
+      },
+      {
         path: 'profile',
         name: 'profile',
         component: ProfileView,
+      },
+      {
+        path: 'placeholder/users',
+        redirect: '/system/user',
       },
       {
         path: 'placeholder/:feature',

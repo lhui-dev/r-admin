@@ -5,14 +5,17 @@ import { useRoute, useRouter } from 'vue-router'
 const route = useRoute()
 const router = useRouter()
 
-const featureKey = computed(() => String(route.params.feature ?? 'default'))
+const featureKey = computed(() => String(route.meta.featureKey ?? route.params.feature ?? 'default'))
+const implementedRouteMap: Record<string, string> = {
+  users: '/system/user',
+}
 const featureContent = computed(() => {
   const contentMap: Record<string, { title: string, description: string, phase: string, nextStep: string }> = {
     users: {
       title: '用户管理',
-      description: '这里将承接用户查询、状态维护、角色分配与密码重置等 RBAC 基础能力。',
-      phase: '页面骨架待接入',
-      nextStep: '优先补列表、搜索区和基础操作栏。',
+      description: '用户管理真实页面已经接入第一版列表、详情、创建、编辑与启停能力，这个占位入口仅保留作旧路径兼容。',
+      phase: '真实页面已接入',
+      nextStep: '建议直接跳转到新的 /system/user 页面继续调试。',
     },
     roles: {
       title: '角色管理',
@@ -37,6 +40,36 @@ const featureContent = computed(() => {
       description: '这里会维护组织结构、部门负责人和用户归属关系，为数据权限打基础。',
       phase: '组织模块待接入',
       nextStep: '后续与用户管理和岗位能力联动推进。',
+    },
+    posts: {
+      title: '岗位管理',
+      description: '这里会维护岗位定义、排序和启停状态，为用户归属和组织协同提供基础能力。',
+      phase: '岗位模块待接入',
+      nextStep: '建议在部门管理之后继续补齐岗位列表与编辑能力。',
+    },
+    dictionaries: {
+      title: '字典管理',
+      description: '这里会维护系统枚举、状态值和颜色标签，供前后端统一复用。',
+      phase: '字典模块待接入',
+      nextStep: '后续优先承接字典类型列表和字典项维护。 ',
+    },
+    configs: {
+      title: '参数配置',
+      description: '这里会承接系统参数、内置配置项与安全策略阈值的统一维护。',
+      phase: '配置模块待接入',
+      nextStep: '建议先补基础列表与内置项只读能力。',
+    },
+    'login-logs': {
+      title: '登录日志',
+      description: '这里会集中展示登录成功、登录失败与登录来源等关键审计记录。',
+      phase: '日志查询待接入',
+      nextStep: '优先承接分页查询、条件筛选与时间范围过滤。',
+    },
+    'operation-logs': {
+      title: '操作日志',
+      description: '这里会展示用户操作行为、权限变更与关键管理动作，作为后台审计主入口。',
+      phase: '操作审计待接入',
+      nextStep: '后续与用户、角色、菜单管理模块联动补齐追踪字段。',
     },
     'audit-logs': {
       title: '审计日志',
@@ -88,8 +121,16 @@ const featureContent = computed(() => {
 
       <div class="construction-view__hero-actions">
         <button
+          v-if="implementedRouteMap[featureKey]"
           type="button"
           class="construction-view__button construction-view__button--primary"
+          @click="router.push(implementedRouteMap[featureKey])"
+        >
+          进入真实页面
+        </button>
+        <button
+          type="button"
+          class="construction-view__button"
           @click="router.push('/dashboard')"
         >
           返回概览看板

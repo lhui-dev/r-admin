@@ -4,14 +4,31 @@ use std::collections::{BTreeSet, HashMap};
 use crate::{
     common::error::{AppError, AppResult},
     modules::system_role::dto::{
-        RolePermissionConfigData, RolePermissionConfigRole, RolePermissionMutationData,
-        RolePermissionSummary, RolePermissionTreeNode, UpdateRolePermissionsRequest,
+        CreateRoleRequest, PaginationMeta, RoleDetailData, RoleListData, RoleListItem,
+        RoleListQuery, RoleMutationData, RolePermissionConfigData, RolePermissionMutationData,
+        RolePermissionSummary, RolePermissionTreeNode, RoleStatusMutationData,
+        UpdateRolePermissionsRequest, UpdateRoleRequest, UpdateRoleStatusRequest,
     },
     state::AppState,
 };
 
 #[derive(Debug, Clone, FromRow)]
-struct RoleConfigRow {
+struct RoleListRow {
+    id: i64,
+    code: String,
+    name: String,
+    status: i16,
+    data_scope: Option<String>,
+    sort: i32,
+    is_builtin: bool,
+    user_count: i64,
+    permission_count: i64,
+    remark: Option<String>,
+    created_at: String,
+}
+
+#[derive(Debug, Clone, FromRow)]
+struct RoleDetailRow {
     id: i64,
     code: String,
     name: String,
@@ -27,8 +44,10 @@ struct RoleConfigRow {
 }
 
 #[derive(Debug, Clone, FromRow)]
-struct PermissionCodeRow {
-    permission_code: String,
+struct RoleIdentityRow {
+    id: i64,
+    code: String,
+    name: String,
 }
 
 #[derive(Debug, Clone, FromRow)]
@@ -60,16 +79,326 @@ struct NextIdRow {
     next_id: i64,
 }
 
+#[derive(Debug, Clone, FromRow)]
+struct CountRow {
+    total: i64,
+}
+
+#[derive(Debug, Clone, FromRow)]
+struct ExistsRow {
+    exists_flag: bool,
+}
+
+pub async fn list_roles(state: &AppState, query: RoleListQuery) -> AppResult<RoleListData> {
+    let page = query.page.unwrap_or(1).max(1);
+    let page_size = query.page_size.unwrap_or(20).clamp(1, 100);
+    let offset = ((page - 1) * page_size) as i64;
+    let keyword = query
+        .keyword
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| format!("%{value}%"));
+    let status = query.status.map(validate_status).transpose()?;
+    let data_scope = query
+        .data_scope
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(normalize_data_scope_filter)
+        .transpose()?;
+
+    let total_row = sqlx::query_as::<_, CountRow>(
+        r#"
+        SELECT COUNT(*)::BIGINT AS total
+        FROM sys_role r
+        WHERE r.is_deleted = FALSE
+          AND ($1::TEXT IS NULL
+                OR r.role_name ILIKE $1
+                OR r.role_code ILIKE $1
+                OR COALESCE(r.remark, '') ILIKE $1)
+          AND ($2::SMALLINT IS NULL OR r.status = $2)
+          AND (
+                $3::TEXT IS NULL
+                OR CASE
+                    WHEN r.data_scope IN ('ALL', 'all') THEN 'all'
+                    WHEN r.data_scope IN ('TENANT', 'tenant') THEN 'tenant'
+                    WHEN r.data_scope IN ('DEPT', 'department', 'DEPT_AND_CHILD') THEN 'department'
+                    WHEN r.data_scope IN ('CUSTOM', 'custom') THEN 'custom'
+                    WHEN r.data_scope IN ('SELF', 'self') THEN 'self'
+                    ELSE LOWER(COALESCE(r.data_scope, ''))
+                END = $3
+          )
+        "#,
+    )
+    .bind(keyword.as_deref())
+    .bind(status)
+    .bind(data_scope.as_deref())
+    .fetch_one(&state.db)
+    .await?;
+
+    let rows = sqlx::query_as::<_, RoleListRow>(
+        r#"
+        SELECT
+            r.id,
+            r.role_code AS code,
+            r.role_name AS name,
+            r.status,
+            r.data_scope,
+            r.role_sort AS sort,
+            r.is_builtin,
+            COALESCE(ur.user_count, 0) AS user_count,
+            COALESCE(rp.permission_count, 0) AS permission_count,
+            r.remark,
+            TO_CHAR(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
+        FROM sys_role r
+        LEFT JOIN (
+            SELECT ur.role_id, COUNT(*)::BIGINT AS user_count
+            FROM sys_user_role ur
+            INNER JOIN sys_user u ON u.id = ur.user_id
+            WHERE u.is_deleted = FALSE
+            GROUP BY ur.role_id
+        ) ur ON ur.role_id = r.id
+        LEFT JOIN (
+            SELECT rp.role_id, COUNT(*)::BIGINT AS permission_count
+            FROM sys_role_permission rp
+            INNER JOIN sys_permission p ON p.id = rp.permission_id
+            WHERE p.is_deleted = FALSE
+              AND p.status = 1
+            GROUP BY rp.role_id
+        ) rp ON rp.role_id = r.id
+        WHERE r.is_deleted = FALSE
+          AND ($1::TEXT IS NULL
+                OR r.role_name ILIKE $1
+                OR r.role_code ILIKE $1
+                OR COALESCE(r.remark, '') ILIKE $1)
+          AND ($2::SMALLINT IS NULL OR r.status = $2)
+          AND (
+                $3::TEXT IS NULL
+                OR CASE
+                    WHEN r.data_scope IN ('ALL', 'all') THEN 'all'
+                    WHEN r.data_scope IN ('TENANT', 'tenant') THEN 'tenant'
+                    WHEN r.data_scope IN ('DEPT', 'department', 'DEPT_AND_CHILD') THEN 'department'
+                    WHEN r.data_scope IN ('CUSTOM', 'custom') THEN 'custom'
+                    WHEN r.data_scope IN ('SELF', 'self') THEN 'self'
+                    ELSE LOWER(COALESCE(r.data_scope, ''))
+                END = $3
+          )
+        ORDER BY r.role_sort, r.id
+        OFFSET $4
+        LIMIT $5
+        "#,
+    )
+    .bind(keyword.as_deref())
+    .bind(status)
+    .bind(data_scope.as_deref())
+    .bind(offset)
+    .bind(page_size as i64)
+    .fetch_all(&state.db)
+    .await?;
+
+    Ok(RoleListData {
+        items: rows.into_iter().map(map_role_list_item).collect(),
+        pagination: PaginationMeta {
+            page,
+            page_size,
+            total: total_row.total.max(0) as u64,
+        },
+    })
+}
+
+pub async fn get_role_detail(state: &AppState, role_id: i64) -> AppResult<RoleDetailData> {
+    let row = find_role_detail_row(state, role_id).await?;
+    map_role_detail(state, row).await
+}
+
+pub async fn create_role(
+    state: &AppState,
+    operator_user_id: i64,
+    payload: CreateRoleRequest,
+) -> AppResult<RoleMutationData> {
+    let code = require_non_empty(payload.code, "code")?;
+    let name = require_non_empty(payload.name, "name")?;
+    let status = validate_status(payload.status.unwrap_or(1))?;
+    let data_scope = normalize_data_scope_input(payload.data_scope)?;
+    let sort = validate_sort(payload.sort.unwrap_or(100))?;
+    let remark = normalize_optional_field(payload.remark);
+
+    let mut tx = state.db.begin().await?;
+    ensure_unique_role_code(&mut tx, &code, None).await?;
+
+    let new_role_id = next_role_id(&mut tx).await?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO sys_role (
+            id,
+            role_name,
+            role_code,
+            role_sort,
+            data_scope,
+            status,
+            is_builtin,
+            created_at,
+            updated_at,
+            created_by,
+            updated_by,
+            is_deleted,
+            remark
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, FALSE, NOW(), NOW(), $7, $7, FALSE, $8
+        )
+        "#,
+    )
+    .bind(new_role_id)
+    .bind(&name)
+    .bind(&code)
+    .bind(sort)
+    .bind(&data_scope)
+    .bind(status)
+    .bind(operator_user_id)
+    .bind(remark)
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(RoleMutationData {
+        id: new_role_id,
+        code,
+        name,
+    })
+}
+
+pub async fn update_role(
+    state: &AppState,
+    operator_user_id: i64,
+    role_id: i64,
+    payload: UpdateRoleRequest,
+) -> AppResult<RoleMutationData> {
+    let mut tx = state.db.begin().await?;
+    let current_role = find_role_identity(&mut tx, role_id)
+        .await?
+        .ok_or_else(|| AppError::not_found("role not found"))?;
+
+    let name = payload
+        .name
+        .map(|value| require_non_empty(value, "name"))
+        .transpose()?;
+    let status = payload.status.map(validate_status).transpose()?;
+    let data_scope = payload
+        .data_scope
+        .map(normalize_data_scope_input)
+        .transpose()?;
+    let sort = payload.sort.map(validate_sort).transpose()?;
+    let remark = payload
+        .remark
+        .map(|value| normalize_optional_field(Some(value)));
+
+    if name.is_none()
+        && status.is_none()
+        && data_scope.is_none()
+        && sort.is_none()
+        && remark.is_none()
+    {
+        return Err(AppError::bad_request(
+            "at least one updatable field is required",
+        ));
+    }
+
+    if current_role.code == "super_admin" && status == Some(0) {
+        return Err(AppError::forbidden("super admin role cannot be disabled"));
+    }
+
+    sqlx::query(
+        r#"
+        UPDATE sys_role
+        SET role_name = COALESCE($2, role_name),
+            status = COALESCE($3, status),
+            data_scope = COALESCE($4, data_scope),
+            role_sort = COALESCE($5, role_sort),
+            remark = COALESCE($6, remark),
+            updated_at = NOW(),
+            updated_by = $7
+        WHERE id = $1
+          AND is_deleted = FALSE
+        "#,
+    )
+    .bind(role_id)
+    .bind(name.as_deref())
+    .bind(status)
+    .bind(data_scope.as_deref())
+    .bind(sort)
+    .bind(remark.flatten())
+    .bind(operator_user_id)
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(RoleMutationData {
+        id: current_role.id,
+        code: current_role.code,
+        name: name.unwrap_or(current_role.name),
+    })
+}
+
+pub async fn update_role_status(
+    state: &AppState,
+    operator_user_id: i64,
+    role_id: i64,
+    payload: UpdateRoleStatusRequest,
+) -> AppResult<RoleStatusMutationData> {
+    let status = validate_status(payload.status)?;
+    let mut tx = state.db.begin().await?;
+    let current_role = find_role_identity(&mut tx, role_id)
+        .await?
+        .ok_or_else(|| AppError::not_found("role not found"))?;
+
+    if current_role.code == "super_admin" && status == 0 {
+        return Err(AppError::forbidden("super admin role cannot be disabled"));
+    }
+
+    sqlx::query(
+        r#"
+        UPDATE sys_role
+        SET status = $2,
+            updated_at = NOW(),
+            updated_by = $3
+        WHERE id = $1
+          AND is_deleted = FALSE
+        "#,
+    )
+    .bind(role_id)
+    .bind(status)
+    .bind(operator_user_id)
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(RoleStatusMutationData {
+        id: current_role.id,
+        code: current_role.code,
+        name: current_role.name,
+        status,
+    })
+}
+
 pub async fn get_role_permission_config(
     state: &AppState,
     role_id: i64,
 ) -> AppResult<RolePermissionConfigData> {
-    let role = get_role_config(state, role_id).await?;
-    let checked_permission_ids = find_checked_permission_codes(state, role_id).await?;
+    let role = get_role_detail(state, role_id).await?;
+    let checked_permission_ids = role
+        .permissions
+        .iter()
+        .map(|item| item.id.clone())
+        .collect();
     let permission_tree = build_permission_tree(state).await?;
 
     Ok(RolePermissionConfigData {
-        role: map_role_config(role),
+        role,
         permission_tree,
         checked_permission_ids,
     })
@@ -157,28 +486,11 @@ pub async fn update_role_permissions(
 
     tx.commit().await?;
 
-    let role = get_role_config(state, role_id).await?;
-    let permissions = find_role_permission_summaries(state, role_id).await?;
-
-    Ok(RolePermissionMutationData {
-        id: role.id,
-        code: role.code,
-        name: role.name,
-        status: role.status,
-        data_scope: normalize_data_scope(role.data_scope.as_deref()),
-        sort: role.sort,
-        is_builtin: role.is_builtin,
-        user_count: role.user_count,
-        permission_count: role.permission_count,
-        remark: role.remark,
-        created_at: role.created_at,
-        updated_at: role.updated_at,
-        permissions,
-    })
+    get_role_detail(state, role_id).await
 }
 
-async fn get_role_config(state: &AppState, role_id: i64) -> AppResult<RoleConfigRow> {
-    sqlx::query_as::<_, RoleConfigRow>(
+async fn find_role_detail_row(state: &AppState, role_id: i64) -> AppResult<RoleDetailRow> {
+    sqlx::query_as::<_, RoleDetailRow>(
         r#"
         SELECT
             r.id,
@@ -218,23 +530,40 @@ async fn get_role_config(state: &AppState, role_id: i64) -> AppResult<RoleConfig
     .ok_or_else(|| AppError::not_found("role not found"))
 }
 
-async fn find_checked_permission_codes(state: &AppState, role_id: i64) -> AppResult<Vec<String>> {
-    sqlx::query_as::<_, PermissionCodeRow>(
-        r#"
-        SELECT p.permission_code
-        FROM sys_role_permission rp
-        INNER JOIN sys_permission p ON p.id = rp.permission_id
-        WHERE rp.role_id = $1
-          AND p.is_deleted = FALSE
-          AND p.status = 1
-        ORDER BY p.permission_code
-        "#,
-    )
-    .bind(role_id)
-    .fetch_all(&state.db)
-    .await
-    .map(|rows| rows.into_iter().map(|row| row.permission_code).collect())
-    .map_err(Into::into)
+async fn map_role_detail(state: &AppState, row: RoleDetailRow) -> AppResult<RoleDetailData> {
+    let permissions = find_role_permission_summaries(state, row.id).await?;
+
+    Ok(RoleDetailData {
+        id: row.id,
+        code: row.code,
+        name: row.name,
+        status: row.status,
+        data_scope: normalize_data_scope_output(row.data_scope.as_deref()),
+        sort: row.sort,
+        is_builtin: row.is_builtin,
+        user_count: row.user_count,
+        permission_count: row.permission_count,
+        remark: row.remark,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        permissions,
+    })
+}
+
+fn map_role_list_item(row: RoleListRow) -> RoleListItem {
+    RoleListItem {
+        id: row.id,
+        code: row.code,
+        name: row.name,
+        status: row.status,
+        data_scope: normalize_data_scope_output(row.data_scope.as_deref()),
+        sort: row.sort,
+        is_builtin: row.is_builtin,
+        user_count: row.user_count,
+        permission_count: row.permission_count,
+        remark: row.remark,
+        created_at: row.created_at,
+    }
 }
 
 async fn find_role_permission_summaries(
@@ -341,7 +670,8 @@ fn assemble_permission_tree(
         children.sort_by_key(|row| (row.sort_no, row.id));
     }
 
-    let mut root_nodes = build_menu_nodes(0, &children_by_parent, &menu_permission_nodes, &menu_lookup);
+    let mut root_nodes =
+        build_menu_nodes(0, &children_by_parent, &menu_permission_nodes, &menu_lookup);
     if let Some(ungrouped_module) = build_ungrouped_module(&menu_permission_nodes) {
         root_nodes.push(ungrouped_module);
     }
@@ -436,6 +766,22 @@ fn build_menu_nodes(
                 children,
             })
         })
+        .filter(|node| {
+            if node.r#type != "menu" {
+                return true;
+            }
+
+            let menu_id = node
+                .id
+                .strip_prefix("menu:")
+                .and_then(|value| value.parse::<i64>().ok());
+
+            if let Some(menu_id) = menu_id {
+                return menu_lookup.contains_key(&menu_id);
+            }
+
+            true
+        })
         .collect()
 }
 
@@ -486,24 +832,7 @@ fn menu_node_type(row: &MenuRow) -> &'static str {
     }
 }
 
-fn map_role_config(row: RoleConfigRow) -> RolePermissionConfigRole {
-    RolePermissionConfigRole {
-        id: row.id,
-        code: row.code,
-        name: row.name,
-        status: row.status,
-        data_scope: normalize_data_scope(row.data_scope.as_deref()),
-        sort: row.sort,
-        is_builtin: row.is_builtin,
-        user_count: row.user_count,
-        permission_count: row.permission_count,
-        remark: row.remark,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-    }
-}
-
-fn normalize_data_scope(value: Option<&str>) -> String {
+fn normalize_data_scope_output(value: Option<&str>) -> String {
     match value.unwrap_or_default() {
         "ALL" | "all" => "all".to_string(),
         "TENANT" | "tenant" => "tenant".to_string(),
@@ -513,6 +842,32 @@ fn normalize_data_scope(value: Option<&str>) -> String {
         "SELF" | "self" => "self".to_string(),
         other if !other.is_empty() => other.to_lowercase(),
         _ => "custom".to_string(),
+    }
+}
+
+fn normalize_data_scope_filter(value: &str) -> AppResult<String> {
+    match value.to_ascii_lowercase().as_str() {
+        "all" => Ok("all".to_string()),
+        "tenant" => Ok("tenant".to_string()),
+        "department" => Ok("department".to_string()),
+        "custom" => Ok("custom".to_string()),
+        "self" => Ok("self".to_string()),
+        _ => Err(AppError::bad_request(
+            "data_scope must be one of all, tenant, department, custom, self",
+        )),
+    }
+}
+
+fn normalize_data_scope_input(value: String) -> AppResult<String> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "all" => Ok("ALL".to_string()),
+        "tenant" => Ok("TENANT".to_string()),
+        "department" => Ok("DEPT_AND_CHILD".to_string()),
+        "custom" => Ok("CUSTOM".to_string()),
+        "self" => Ok("SELF".to_string()),
+        _ => Err(AppError::bad_request(
+            "data_scope must be one of all, tenant, department, custom, self",
+        )),
     }
 }
 
@@ -597,4 +952,104 @@ async fn next_role_permission_id(tx: &mut Transaction<'_, Postgres>) -> AppResul
     .await?;
 
     Ok(row.next_id)
+}
+
+async fn next_role_id(tx: &mut Transaction<'_, Postgres>) -> AppResult<i64> {
+    let row = sqlx::query_as::<_, NextIdRow>(
+        r#"
+        SELECT COALESCE(MAX(id), 300) + 10 AS next_id
+        FROM sys_role
+        "#,
+    )
+    .fetch_one(&mut **tx)
+    .await?;
+
+    Ok(row.next_id)
+}
+
+async fn ensure_unique_role_code(
+    tx: &mut Transaction<'_, Postgres>,
+    code: &str,
+    exclude_role_id: Option<i64>,
+) -> AppResult<()> {
+    let row = sqlx::query_as::<_, ExistsRow>(
+        r#"
+        SELECT EXISTS(
+            SELECT 1
+            FROM sys_role
+            WHERE role_code = $1
+              AND ($2::BIGINT IS NULL OR id <> $2)
+        ) AS exists_flag
+        "#,
+    )
+    .bind(code)
+    .bind(exclude_role_id)
+    .fetch_one(&mut **tx)
+    .await?;
+
+    if row.exists_flag {
+        return Err(AppError::conflict("role code already exists"));
+    }
+
+    Ok(())
+}
+
+async fn find_role_identity(
+    tx: &mut Transaction<'_, Postgres>,
+    role_id: i64,
+) -> AppResult<Option<RoleIdentityRow>> {
+    sqlx::query_as::<_, RoleIdentityRow>(
+        r#"
+        SELECT
+            id,
+            role_code AS code,
+            role_name AS name
+        FROM sys_role
+        WHERE id = $1
+          AND is_deleted = FALSE
+        LIMIT 1
+        "#,
+    )
+    .bind(role_id)
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(Into::into)
+}
+
+fn require_non_empty(value: String, field_name: &str) -> AppResult<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::bad_request(format!("{field_name} is required")));
+    }
+
+    Ok(trimmed.to_string())
+}
+
+fn normalize_optional_field(value: Option<String>) -> Option<String> {
+    value.and_then(|item| {
+        let trimmed = item.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
+fn validate_status(status: i16) -> AppResult<i16> {
+    if status != 0 && status != 1 {
+        return Err(AppError::bad_request("status must be 0 or 1"));
+    }
+
+    Ok(status)
+}
+
+fn validate_sort(sort: i32) -> AppResult<i32> {
+    if sort < 0 {
+        return Err(AppError::bad_request(
+            "sort must be greater than or equal to 0",
+        ));
+    }
+
+    Ok(sort)
 }

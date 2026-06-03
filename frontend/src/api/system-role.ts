@@ -9,6 +9,13 @@ export interface RolePermissionSummary {
   name: string
 }
 
+export interface RolePermissionTreeNode {
+  id: string
+  name: string
+  type: 'module' | 'menu' | 'button' | 'api'
+  children?: RolePermissionTreeNode[]
+}
+
 export interface RoleListItem {
   id: number
   code: string
@@ -70,6 +77,16 @@ export interface RoleMutationData {
 
 export interface RoleStatusMutationData extends RoleMutationData {
   status: number
+}
+
+export interface RolePermissionConfigData {
+  role: RoleDetailData
+  permission_tree: RolePermissionTreeNode[]
+  checked_permission_ids: string[]
+}
+
+export interface UpdateRolePermissionsPayload {
+  permission_ids: string[]
 }
 
 type InternalRoleRecord = RoleDetailData
@@ -168,6 +185,111 @@ const roleStore: InternalRoleRecord[] = [
     permissions: [
       { id: 'dashboard:view', name: '工作台查看' },
       { id: 'profile:view', name: '个人资料查看' },
+    ],
+  },
+]
+
+const permissionTreeStore: RolePermissionTreeNode[] = [
+  {
+    id: 'module:dashboard',
+    name: '工作台',
+    type: 'module',
+    children: [
+      {
+        id: 'menu:dashboard:view',
+        name: '工作台页面',
+        type: 'menu',
+        children: [
+          { id: 'dashboard:view', name: '查看工作台', type: 'button' },
+          { id: 'dashboard:refresh', name: '刷新看板', type: 'button' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'module:system',
+    name: '系统管理',
+    type: 'module',
+    children: [
+      {
+        id: 'menu:system:user',
+        name: '用户管理',
+        type: 'menu',
+        children: [
+          { id: 'system:user:list', name: '查看用户列表', type: 'button' },
+          { id: 'system:user:create', name: '新增用户', type: 'button' },
+          { id: 'system:user:update', name: '编辑用户', type: 'button' },
+          { id: 'system:user:status', name: '启停用户', type: 'button' },
+        ],
+      },
+      {
+        id: 'menu:system:role',
+        name: '角色管理',
+        type: 'menu',
+        children: [
+          { id: 'system:role:list', name: '查看角色列表', type: 'button' },
+          { id: 'system:role:create', name: '新增角色', type: 'button' },
+          { id: 'system:role:update', name: '编辑角色', type: 'button' },
+          { id: 'system:role:permission', name: '配置角色权限', type: 'button' },
+        ],
+      },
+      {
+        id: 'menu:system:menu',
+        name: '菜单管理',
+        type: 'menu',
+        children: [
+          { id: 'system:menu:list', name: '查看菜单列表', type: 'button' },
+          { id: 'system:menu:update', name: '编辑菜单', type: 'button' },
+        ],
+      },
+      {
+        id: 'menu:system:dept',
+        name: '部门管理',
+        type: 'menu',
+        children: [
+          { id: 'system:dept:list', name: '查看部门列表', type: 'button' },
+          { id: 'system:dept:update', name: '编辑部门', type: 'button' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'module:audit',
+    name: '日志审计',
+    type: 'module',
+    children: [
+      {
+        id: 'menu:audit:login',
+        name: '登录日志',
+        type: 'menu',
+        children: [
+          { id: 'system:log:login:list', name: '查看登录日志', type: 'button' },
+        ],
+      },
+      {
+        id: 'menu:audit:operation',
+        name: '操作日志',
+        type: 'menu',
+        children: [
+          { id: 'system:log:operation:list', name: '查看操作日志', type: 'button' },
+          { id: 'audit:center:view', name: '查看审计中心', type: 'button' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'module:profile',
+    name: '个人中心',
+    type: 'module',
+    children: [
+      {
+        id: 'menu:profile:view',
+        name: '个人信息',
+        type: 'menu',
+        children: [
+          { id: 'profile:view', name: '查看个人信息', type: 'button' },
+        ],
+      },
     ],
   },
 ]
@@ -299,6 +421,47 @@ export async function updateSystemRoleStatus(roleId: number, status: number) {
   })
 }
 
+export async function fetchSystemRolePermissionConfig(roleId: number) {
+  await sleep(120)
+
+  const role = roleStore.find(item => item.id === roleId)
+  if (!role) {
+    throw new Error('角色不存在，无法加载权限配置')
+  }
+
+  return buildResponse<RolePermissionConfigData>({
+    role: { ...role, permissions: [...role.permissions] },
+    permission_tree: clonePermissionTree(permissionTreeStore),
+    checked_permission_ids: role.permissions.map(item => item.id),
+  })
+}
+
+export async function updateSystemRolePermissions(roleId: number, payload: UpdateRolePermissionsPayload) {
+  await sleep(120)
+
+  const role = roleStore.find(item => item.id === roleId)
+  if (!role) {
+    throw new Error('角色不存在，无法保存权限配置')
+  }
+
+  const permissionMap = new Map(flattenPermissionLeaves(permissionTreeStore).map(item => [item.id, item.name]))
+  const nextPermissions = payload.permission_ids
+    .filter(permissionId => permissionMap.has(permissionId))
+    .map(permissionId => ({
+      id: permissionId,
+      name: permissionMap.get(permissionId) ?? permissionId,
+    }))
+
+  role.permissions = nextPermissions
+  role.permission_count = nextPermissions.length
+  role.updated_at = currentTimestamp()
+
+  return buildResponse<RoleDetailData>({
+    ...role,
+    permissions: [...role.permissions],
+  })
+}
+
 function toRoleListItem(role: InternalRoleRecord): RoleListItem {
   return {
     id: role.id,
@@ -341,4 +504,23 @@ function currentTimestamp() {
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function clonePermissionTree(tree: RolePermissionTreeNode[]): RolePermissionTreeNode[] {
+  return tree.map(node => ({
+    ...node,
+    children: node.children ? clonePermissionTree(node.children) : undefined,
+  }))
+}
+
+function flattenPermissionLeaves(tree: RolePermissionTreeNode[]): Array<{ id: string, name: string }> {
+  return tree.flatMap((node) => {
+    if (!node.children?.length) {
+      return node.type === 'button' || node.type === 'api'
+        ? [{ id: node.id, name: node.name }]
+        : []
+    }
+
+    return flattenPermissionLeaves(node.children)
+  })
 }

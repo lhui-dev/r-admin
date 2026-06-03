@@ -152,6 +152,22 @@ function handleContentScroll(event: Event) {
 function resolveMenuIcon(icon?: string) {
   return (icon && menuIconMap[icon]) || Document
 }
+
+function isMenuItemActive(itemPath?: string) {
+  if (!itemPath) {
+    return false
+  }
+
+  if (activePath.value === itemPath) {
+    return true
+  }
+
+  if (itemPath === '/system/role' && activePath.value.startsWith('/system/role/')) {
+    return true
+  }
+
+  return false
+}
 </script>
 
 <template>
@@ -297,7 +313,7 @@ function resolveMenuIcon(icon?: string) {
             :key="item.id"
             type="button"
             class="app-layout__nav-item"
-            :class="{ 'is-active': item.path === activePath }"
+            :class="{ 'is-active': isMenuItemActive(item.path) }"
             :title="collapsed ? item.title : ''"
             @click="handleRoute(item.path, item.description)"
           >

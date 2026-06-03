@@ -8,6 +8,7 @@ const router = useRouter()
 const featureKey = computed(() => String(route.meta.featureKey ?? route.params.feature ?? 'default'))
 const implementedRouteMap: Record<string, string> = {
   users: '/system/user',
+  roles: '/system/role',
 }
 const featureContent = computed(() => {
   const contentMap: Record<string, { title: string, description: string, phase: string, nextStep: string }> = {
@@ -19,9 +20,9 @@ const featureContent = computed(() => {
     },
     roles: {
       title: '角色管理',
-      description: '这里将维护角色定义、角色状态和角色授权范围，是 RBAC 的核心配置入口之一。',
-      phase: '业务模型已规划',
-      nextStep: '下一步将接入角色列表与权限绑定入口。',
+      description: '角色管理真实页面已经接入前端原型闭环，当前可直接进入列表、详情、编辑与启停维护流程。',
+      phase: '真实页面已接入',
+      nextStep: '建议直接跳转到新的 /system/role 页面继续调试。',
     },
     permissions: {
       title: '权限点管理',

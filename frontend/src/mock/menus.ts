@@ -38,7 +38,7 @@ export function buildMockMenuTree(): AppMenuItem[] {
           path: '/system/role',
           icon: 'collection-tag',
           permission: 'system:role:list',
-          description: '角色管理页建设中。',
+          description: '角色管理页已接入前端原型闭环。 ',
         },
         {
           id: 'menus',

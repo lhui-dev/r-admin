@@ -1,21 +1,32 @@
-# APIFox 认证调试说明
+# APIFox 联调说明
 
-本文档用于说明如何把当前项目的认证接口快速导入 APIFox，并在后续接口迭代时保持调试资产同步更新。
+本文档用于说明如何把当前项目的后端接口快速导入 APIFox，并在后续接口迭代时保持调试资产同步更新。
+
+当前这份文档已经覆盖：
+
+1. 健康检查
+2. 认证接口
+3. 用户管理第一版接口
 
 ## 1. 导入文件
 
-当前提供的 APIFox 导入文件：
+当前提供的 APIFox 相关文件：
 
-1. [认证接口 OpenAPI 导入文件](./apifox-auth.openapi.json)
+1. [OpenAPI 导入文件](./apifox-auth.openapi.json)
 2. [APIFox 调试脚本清单](./apifox-debug-scripts.md)
 
-该文件当前覆盖：
+当前 OpenAPI 文件覆盖：
 
 1. `GET /api/health`
 2. `POST /api/auth/login`
 3. `GET /api/auth/me`
 4. `GET /api/auth/menus`
 5. `POST /api/auth/logout`
+6. `GET /api/system/users`
+7. `GET /api/system/users/{id}`
+8. `POST /api/system/users`
+9. `PATCH /api/system/users/{id}`
+10. `PATCH /api/system/users/{id}/status`
 
 ## 2. 导入方式
 
@@ -25,32 +36,39 @@
 2. 选择“导入”
 3. 选择 `OpenAPI/Swagger`
 4. 选择文件 [apifox-auth.openapi.json](./apifox-auth.openapi.json)
-5. 导入后按 `Auth`、`Health` 分组检查接口是否完整
+5. 导入后按 `Health`、`Auth`、`System User` 三个分组检查接口是否完整
 
-如果你准备直接在 APIFox 中挂前置脚本和后置脚本，建议同时参考：
+如果你准备继续在 APIFox 中挂前后置脚本，建议同时参考：
 
 1. [APIFox 调试脚本清单](./apifox-debug-scripts.md)
 
 ## 3. 推荐环境变量
 
-建议在 APIFox 中创建一个本地调试环境，例如：
+建议在 APIFox 中创建一个本地调试环境：
 
 ```text
 baseUrl = http://127.0.0.1:8080
 access_token =
+login_username = admin
+login_password = Admin@123456
+expected_role = super_admin
 ```
 
-后续如果走 Docker 联调，也可以再补一个环境：
+如果你需要临时避开端口冲突，也可以加一个备用环境：
 
 ```text
 baseUrl = http://127.0.0.1:18080
 access_token =
+login_username = admin
+login_password = Admin@123456
+expected_role = super_admin
 ```
 
 说明：
 
-1. `18080` 是之前为了避开本地端口冲突做联调时使用过的备用端口
-2. 如果你当前仍使用默认后端端口，则优先使用 `8080`
+1. `8080` 是默认本地后端端口
+2. `18080` 是之前做临时联调时使用过的备用端口
+3. 当前所有需要登录的接口都复用同一个 `access_token`
 
 ## 4. 当前默认调试账号
 
@@ -71,33 +89,83 @@ password: Admin@123456
 
 1. [种子数据脚本](../sql/seed-data.sql)
 
-注意：
+当前基础部门与角色示例：
 
-1. 这次已经把种子文件中的默认密码改成真实 Argon2 哈希
-2. 如果你的数据库之前已经导入过旧版本种子，数据库中的 `sys_user.password_hash` 不会自动更新
-3. 如果登录失败，请优先重新执行种子 SQL，或单独更新对应账号的密码哈希
+```text
+dept: 100 平台总部
+dept: 110 技术中心
+dept: 120 运营中心
 
-## 5. 建议调试顺序
+role: 300 super_admin
+role: 310 system_admin
+role: 320 auditor
+role: 330 operator
+```
 
-建议按下面顺序进行：
+## 5. 推荐调试顺序
 
-1. 先调 `GET /api/health`
-2. 再调 `POST /api/auth/login`
-3. 取回 `access_token`
-4. 再调 `GET /api/auth/me`
-5. 再调 `GET /api/auth/menus`
-6. 最后调 `POST /api/auth/logout`
+建议按下面顺序调试：
 
-## 6. 当前接口行为说明
+1. `GET /api/health`
+2. `POST /api/auth/login`
+3. `GET /api/auth/me`
+4. `GET /api/auth/menus`
+5. `GET /api/system/users`
+6. `POST /api/system/users`
+7. `GET /api/system/users/{id}`
+8. `PATCH /api/system/users/{id}`
+9. `PATCH /api/system/users/{id}/status`
+10. `POST /api/auth/logout`
 
-### 6.1 `GET /api/health`
+这样做的原因：
+
+1. 先确认服务和数据库状态
+2. 再确认登录与鉴权链路正常
+3. 最后再调需要登录态的业务接口
+
+## 6. 脚本复用建议
+
+当前用户管理接口不需要新增独立鉴权脚本，直接复用：
+
+1. [通用鉴权前置脚本](./apifox-scripts/auth-prerequest.js)
+2. [登录前置脚本](./apifox-scripts/login-prerequest.js)
+3. [登录后置脚本](./apifox-scripts/login-postresponse.js)
+
+建议：
+
+1. 在 `POST /api/auth/login` 执行后自动保存 `access_token`
+2. 在所有 `/api/system/users*` 接口前统一挂 `auth-prerequest.js`
+3. 用户管理接口如果需要做结构断言，可直接在 APIFox 内补最小后置脚本
+
+一个最小用户列表断言示例：
+
+```javascript
+pm.test('user list status is 200', function () {
+  pm.response.to.have.status(200);
+});
+
+const json = pm.response.json();
+
+pm.test('user list business code is 0', function () {
+  pm.expect(json.code).to.eql(0);
+});
+
+pm.test('user list payload shape is valid', function () {
+  pm.expect(json.data.items).to.be.an('array');
+  pm.expect(json.data.pagination).to.be.an('object');
+});
+```
+
+## 7. 当前接口行为说明
+
+### 7.1 `GET /api/health`
 
 用途：
 
 1. 检查后端服务是否启动
 2. 检查数据库是否可连接
 
-### 6.2 `POST /api/auth/login`
+### 7.2 `POST /api/auth/login`
 
 用途：
 
@@ -111,7 +179,7 @@ password: Admin@123456
 2. 暂未引入 Refresh Token
 3. 暂未接入验证码、锁定策略、多租户登录隔离
 
-### 6.3 `GET /api/auth/me`
+### 7.3 `GET /api/auth/me`
 
 用途：
 
@@ -120,7 +188,7 @@ password: Admin@123456
 3. 返回角色编码列表
 4. 返回权限编码列表
 
-### 6.4 `GET /api/auth/menus`
+### 7.4 `GET /api/auth/menus`
 
 用途：
 
@@ -128,14 +196,7 @@ password: Admin@123456
 2. 返回前端可直接渲染的分组和菜单项
 3. 用于前端登录后的动态菜单初始化
 
-当前特点：
-
-1. 当前返回结构固定在 `data.menus`
-2. 一级目录菜单返回 `children`
-3. 当前前端已存在页面会映射到真实路由
-4. 其余菜单项会统一落到 `placeholder` 占位页
-
-### 6.5 `POST /api/auth/logout`
+### 7.5 `POST /api/auth/logout`
 
 当前阶段说明：
 
@@ -143,61 +204,326 @@ password: Admin@123456
 2. 主要用于前端调试退出流程
 3. 目前不做服务端 token 失效和黑名单管理
 
-## 7. 当前联调结论
+### 7.6 `GET /api/system/users`
 
-截至 2026-06-01，本地 Docker 联调已确认：
+用途：
 
-1. `GET /api/health` 可用
-2. `POST /api/auth/login` 可用
-3. `GET /api/auth/me` 可用
-4. `GET /api/auth/menus` 可用
+1. 返回分页用户列表
+2. 支持 `keyword / dept_id / status` 筛选
+3. 列表中直接带轻量部门、角色、岗位摘要
 
-当前种子数据限制：
+当前查询参数：
 
-1. `admin` 当前是超级管理员
-2. `sysadmin` 当前绑定 `system_admin` 角色
-3. `auditor` 当前绑定 `auditor` 角色
+1. `page`
+2. `page_size`
+3. `keyword`
+4. `dept_id`
+5. `status`
 
-当前已完成的菜单联调结论：
+### 7.7 `GET /api/system/users/{id}`
 
-1. `admin` 可返回完整一级菜单：`首页`、`系统管理`、`日志审计`
-2. `sysadmin` 可正常通过非超级管理员链路返回菜单
-3. `auditor` 只返回 `首页` 和 `日志审计`，说明菜单已按权限裁剪
+用途：
 
-## 8. 后续新增接口时如何维护
+1. 返回单个用户详情
+2. 返回部门、角色、岗位摘要
+3. 返回登录相关字段和资料字段
+
+### 7.8 `POST /api/system/users`
+
+用途：
+
+1. 创建新用户
+2. 当前支持基础资料、部门、状态入参
+3. 当前不在这个接口里分配角色和岗位
+
+当前主要校验点：
+
+1. `username` 不能为空
+2. `password` 不能为空
+3. `nickname` 不能为空
+4. `status` 只能是 `0 / 1`
+5. `dept_id` 必须存在
+6. `username / mobile / email` 不能冲突
+
+### 7.9 `PATCH /api/system/users/{id}`
+
+用途：
+
+1. 更新第一版可编辑资料
+2. 当前不允许修改 `username`
+3. 当前不允许修改 `password`
+4. 当前不允许修改 `status`
+
+当前可更新字段：
+
+1. `nickname`
+2. `real_name`
+3. `mobile`
+4. `email`
+5. `gender`
+6. `dept_id`
+7. `remark`
+
+### 7.10 `PATCH /api/system/users/{id}/status`
+
+用途：
+
+1. 启用或停用用户
+2. 当前独立拆分成单一职责接口
+
+当前限制：
+
+1. `status` 只能是 `0 / 1`
+2. 不能停用超级管理员
+3. 不能停用当前登录用户自己
+
+## 8. 统一回归结果
+
+本次联调与回归覆盖了：
+
+1. OpenAPI 文档结构补全
+2. OpenAPI JSON 可解析性校验
+3. 后端编译检查
+4. 用户管理真实接口链路回归
+
+当前已验证通过的接口：
+
+1. `GET /api/health`
+2. `POST /api/auth/login`
+3. `GET /api/system/users`
+4. `GET /api/system/users/{id}`
+5. `POST /api/system/users`
+6. `PATCH /api/system/users/{id}`
+7. `PATCH /api/system/users/{id}/status`
+
+本次真实联调用例：
+
+1. 使用 `admin / Admin@123456` 登录获取 token
+2. 创建用户 `operator192830`
+3. 创建成功后拿到 `id = 1050`
+4. 查询列表确认能按 `keyword=operator192830` 搜到
+5. 查询详情确认初始部门为 `技术中心`
+6. 更新昵称与部门到 `运营中心`
+7. 停用该用户，状态变更为 `0`
+8. 再查详情确认更新已生效
+
+## 9. 返回数据示例
+
+### 9.1 `GET /api/health`
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "status": "ok",
+    "service": "r-admin-backend",
+    "database": "up"
+  }
+}
+```
+
+### 9.2 `POST /api/auth/login`
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "access_token": "<jwt-token>",
+    "token_type": "Bearer",
+    "expires_in": 7200,
+    "user": {
+      "id": 1000,
+      "username": "admin",
+      "nickname": "超级管理员",
+      "real_name": "平台管理员",
+      "is_super_admin": true
+    }
+  }
+}
+```
+
+### 9.3 `GET /api/system/users?page=1&page_size=20&keyword=operator192830`
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "items": [
+      {
+        "id": 1050,
+        "username": "operator192830",
+        "nickname": "操作员联调-更新",
+        "real_name": "联调测试用户",
+        "mobile": "139192830",
+        "email": "operator192830@example.com",
+        "status": 0,
+        "is_super_admin": false,
+        "dept": {
+          "id": 120,
+          "name": "运营中心"
+        },
+        "roles": [],
+        "posts": [],
+        "last_login_at": null,
+        "created_at": "2026-06-03T11:28:30Z"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "page_size": 20,
+      "total": 1
+    }
+  }
+}
+```
+
+### 9.4 `GET /api/system/users/1050`
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "id": 1050,
+    "username": "operator192830",
+    "nickname": "操作员联调-更新",
+    "real_name": "联调测试用户",
+    "mobile": "139192830",
+    "email": "operator192830@example.com",
+    "avatar_url": null,
+    "gender": 1,
+    "status": 0,
+    "is_super_admin": false,
+    "remark": "updated by live regression",
+    "dept": {
+      "id": 120,
+      "name": "运营中心"
+    },
+    "roles": [],
+    "posts": [],
+    "last_login_at": null,
+    "last_login_ip": null,
+    "password_updated_at": "2026-06-03T11:28:30Z",
+    "created_at": "2026-06-03T11:28:30Z",
+    "updated_at": "2026-06-03T11:28:31Z"
+  }
+}
+```
+
+### 9.5 `POST /api/system/users`
+
+请求体示例：
+
+```json
+{
+  "username": "operator192830",
+  "password": "Admin@123456",
+  "nickname": "操作员联调",
+  "real_name": "联调测试用户",
+  "mobile": "139192830",
+  "email": "operator192830@example.com",
+  "gender": 1,
+  "dept_id": 110,
+  "status": 1,
+  "remark": "APIFox live regression user"
+}
+```
+
+返回示例：
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "id": 1050,
+    "username": "operator192830"
+  }
+}
+```
+
+### 9.6 `PATCH /api/system/users/1050`
+
+请求体示例：
+
+```json
+{
+  "nickname": "操作员联调-更新",
+  "real_name": "联调测试用户",
+  "mobile": "139192830",
+  "email": "operator192830@example.com",
+  "gender": 1,
+  "dept_id": 120,
+  "remark": "updated by live regression"
+}
+```
+
+返回示例：
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "id": 1050,
+    "username": "operator192830"
+  }
+}
+```
+
+### 9.7 `PATCH /api/system/users/1050/status`
+
+请求体示例：
+
+```json
+{
+  "status": 0
+}
+```
+
+返回示例：
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "id": 1050,
+    "username": "operator192830",
+    "status": 0
+  }
+}
+```
+
+## 10. 后续新增接口时如何维护
 
 后续新增接口后，建议始终同步维护这份 OpenAPI 文件，保持 APIFox 调试入口稳定。
 
 建议维护规则：
 
 1. 新增后端路由时，同步更新 [apifox-auth.openapi.json](./apifox-auth.openapi.json)
-2. 优先保持 `tags`、`summary`、`requestBody`、`responses` 完整
+2. 优先保持 `tags`、`summary`、`requestBody`、`parameters`、`responses` 完整
 3. 如果接口需要登录，补上 `BearerAuth`
 4. 如果接口返回结构有复用，优先补到 `components.schemas`
-5. 错误响应尽量补充 `400`、`401`、`403`、`404`
+5. 错误响应尽量补充 `400`、`401`、`403`、`404`、`409`
+6. 联调通过后，把一个真实成功示例同步写回文档
 
-## 9. 推荐的后续拆分方式
+## 11. 推荐的后续拆分方式
 
 为了方便后续维护，建议后面不要一直把所有接口都堆在一个文件里。
 
 推荐演进方式：
 
 1. 当前阶段先保留一个总入口文件：`docs/apifox-auth.openapi.json`
-2. 后续当接口增多后，拆成多个文件：
+2. 后续接口增多后，拆成多个文件：
    `docs/openapi/auth.openapi.json`
    `docs/openapi/system-user.openapi.json`
    `docs/openapi/system-role.openapi.json`
    `docs/openapi/system-menu.openapi.json`
 3. 如果未来后端引入 `utoipa` 或其他 OpenAPI 自动生成方案，再逐步切换成“代码生成文档”
-
-## 10. 建议的更新节奏
-
-每次接口迭代建议同时完成下面几项：
-
-1. 更新后端路由与实现
-2. 更新 OpenAPI 导入文件
-3. 更新调试说明中涉及的默认参数、鉴权方式、端口或环境变量
-4. 再导入 APIFox 验证一轮
 
 一句话原则：
 

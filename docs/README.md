@@ -13,12 +13,13 @@
 7. [认证初始化计划](./auth-init-plan.md)
 8. [认证初始化执行清单](./auth-init-checklist.md)
 9. [前端认证接入 TODO 清单](./frontend-auth-todo.md)
-10. [APIFox 认证调试说明](./apifox-auth-debug.md)
+10. [APIFox 联调说明](./apifox-auth-debug.md)
 11. [APIFox 调试脚本清单](./apifox-debug-scripts.md)
 12. [动态菜单初始化方案](./dynamic-menu-init-plan.md)
 13. [菜单接口设计](./auth-menus-api-design.md)
 14. [后端菜单实现说明](./backend-auth-menus-implementation-plan.md)
-15. [CI 工作流说明](./ci-workflows.md)
+15. [用户管理接口设计](./user-management-api-design.md)
+16. [CI 工作流说明](./ci-workflows.md)
 
 ## 2. 图与模型
 
@@ -49,7 +50,8 @@
 9. 再看 [动态菜单初始化方案](./dynamic-menu-init-plan.md)
 10. 再看 [菜单接口设计](./auth-menus-api-design.md)
 11. 再看 [后端菜单实现说明](./backend-auth-menus-implementation-plan.md)
-12. 再看 [APIFox 认证调试说明](./apifox-auth-debug.md)
-13. 再看 [APIFox 调试脚本清单](./apifox-debug-scripts.md)
-14. 再看 [CI 工作流说明](./ci-workflows.md)
-15. 最后结合 [Docker 容器化说明](./dockerization.md) 落地环境
+12. 再看 [用户管理接口设计](./user-management-api-design.md)
+13. 再看 [APIFox 联调说明](./apifox-auth-debug.md)
+14. 再看 [APIFox 调试脚本清单](./apifox-debug-scripts.md)
+15. 再看 [CI 工作流说明](./ci-workflows.md)
+16. 最后结合 [Docker 容器化说明](./dockerization.md) 落地环境

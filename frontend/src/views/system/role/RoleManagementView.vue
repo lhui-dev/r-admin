@@ -15,6 +15,7 @@ import {
   type FormRules,
 } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import BaseTable from '@/base-ui/base-table/BaseTable.vue'
 import PageContent from '@/base-ui/page-content/PageContent.vue'
@@ -48,6 +49,8 @@ const dataScopeOptions = [
   { label: '自定义数据', value: 'custom' },
   { label: '仅本人数据', value: 'self' },
 ]
+
+const router = useRouter()
 
 const statusOptions = [
   { label: '启用', value: 1 },
@@ -302,7 +305,7 @@ async function handleToggleStatus(row: RoleListItem) {
 }
 
 function handlePermissionConfig(role: RoleListItem | RoleDetailData) {
-  ElMessage.info(`“${role.name}” 的权限配置将在后续菜单授权阶段接入。`)
+  void router.push(`/system/role/${role.id}/permission`)
 }
 
 function optionalText(value: string) {

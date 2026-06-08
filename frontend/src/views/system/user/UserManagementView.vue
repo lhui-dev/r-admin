@@ -5,6 +5,7 @@ import {
   Plus,
   RefreshRight,
   Search,
+  UserFilled,
   View,
 } from '@element-plus/icons-vue'
 import {
@@ -24,12 +25,15 @@ import {
   fetchSystemUserDetail,
   fetchSystemUsers,
   updateSystemUser,
+  updateSystemUserRoles,
   updateSystemUserStatus,
   type CreateUserPayload,
+  type UpdateUserRolesPayload,
   type UpdateUserPayload,
   type UserDetailData,
   type UserListItem,
 } from '@/api/system-user'
+import { fetchSystemRoles, type RoleListItem as SystemRoleListItem } from '@/api/system-role'
 
 type UserFormModel = {
   username: string
@@ -40,6 +44,7 @@ type UserFormModel = {
   email: string
   gender?: number
   deptId?: number
+  roleIds: number[]
   status: number
   remark: string
 }
@@ -75,17 +80,24 @@ const pagination = reactive({
 
 const userList = ref<UserListItem[]>([])
 const loading = ref(false)
+const roleOptions = ref<SystemRoleListItem[]>([])
+const roleOptionsLoading = ref(false)
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const currentDetail = ref<UserDetailData | null>(null)
 const modalVisible = ref(false)
 const modalLoading = ref(false)
 const submitLoading = ref(false)
+const roleAssignVisible = ref(false)
+const roleAssignLoading = ref(false)
+const roleAssignSubmitLoading = ref(false)
 const modalMode = ref<'create' | 'edit'>('create')
 const editingUserId = ref<number | null>(null)
+const assigningUser = ref<{ id: number, nickname: string } | null>(null)
 const formRef = ref<FormInstance>()
 
 const form = reactive<UserFormModel>(createDefaultForm())
+const assignRoleIds = ref<number[]>([])
 
 const formRules: FormRules<UserFormModel> = {
   username: [
@@ -124,6 +136,7 @@ function createDefaultForm(): UserFormModel {
     email: '',
     gender: 1,
     deptId: 110,
+    roleIds: [],
     status: 1,
     remark: '',
   }
@@ -133,6 +146,25 @@ function resetForm() {
   Object.assign(form, createDefaultForm())
   editingUserId.value = null
   formRef.value?.clearValidate()
+}
+
+async function loadRoleOptions() {
+  roleOptionsLoading.value = true
+
+  try {
+    const response = await fetchSystemRoles({
+      page: 1,
+      page_size: 100,
+    })
+
+    roleOptions.value = response.data.items
+  }
+  catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '角色选项加载失败'))
+  }
+  finally {
+    roleOptionsLoading.value = false
+  }
 }
 
 async function loadUsers() {
@@ -201,6 +233,7 @@ async function handleView(userId: number) {
 function handleCreate() {
   modalMode.value = 'create'
   resetForm()
+  void loadRoleOptions()
   modalVisible.value = true
 }
 
@@ -214,6 +247,7 @@ async function handleEdit(userId: number) {
   resetForm()
   modalVisible.value = true
   modalLoading.value = true
+  void loadRoleOptions()
 
   try {
     const response = await fetchSystemUserDetail(userId)
@@ -226,6 +260,7 @@ async function handleEdit(userId: number) {
     form.email = detail.email ?? ''
     form.gender = detail.gender ?? 1
     form.deptId = detail.dept?.id
+    form.roleIds = detail.roles.map(role => role.id)
     form.remark = detail.remark ?? ''
   }
   catch (error) {
@@ -234,6 +269,34 @@ async function handleEdit(userId: number) {
   }
   finally {
     modalLoading.value = false
+  }
+}
+
+async function handleAssignRoles(userId: number) {
+  roleAssignVisible.value = true
+  roleAssignLoading.value = true
+  assignRoleIds.value = []
+  assigningUser.value = null
+
+  try {
+    const [detailResponse] = await Promise.all([
+      fetchSystemUserDetail(userId),
+      loadRoleOptions(),
+    ])
+    const detail = detailResponse.data
+
+    assigningUser.value = {
+      id: detail.id,
+      nickname: detail.nickname,
+    }
+    assignRoleIds.value = detail.roles.map(role => role.id)
+  }
+  catch (error) {
+    roleAssignVisible.value = false
+    ElMessage.error(resolveErrorMessage(error, '角色信息加载失败'))
+  }
+  finally {
+    roleAssignLoading.value = false
   }
 }
 
@@ -257,6 +320,7 @@ async function handleSubmit() {
         gender: form.gender,
         dept_id: form.deptId,
         status: form.status,
+        role_ids: [...form.roleIds],
         remark: optionalText(form.remark),
       }
 
@@ -273,6 +337,7 @@ async function handleSubmit() {
         email: optionalText(form.email),
         gender: form.gender,
         dept_id: form.deptId,
+        role_ids: [...form.roleIds],
         remark: optionalText(form.remark),
       }
 
@@ -288,6 +353,37 @@ async function handleSubmit() {
   }
   finally {
     submitLoading.value = false
+  }
+}
+
+async function handleSubmitAssignedRoles() {
+  if (!assigningUser.value) {
+    return
+  }
+
+  const targetUserId = assigningUser.value.id
+  roleAssignSubmitLoading.value = true
+
+  try {
+    const payload: UpdateUserRolesPayload = {
+      role_ids: [...assignRoleIds.value],
+    }
+
+    await updateSystemUserRoles(targetUserId, payload)
+    ElMessage.success('角色分配已更新')
+    roleAssignVisible.value = false
+
+    await loadUsers()
+    if (currentDetail.value?.id === targetUserId) {
+      const response = await fetchSystemUserDetail(targetUserId)
+      currentDetail.value = response.data
+    }
+  }
+  catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '角色分配失败'))
+  }
+  finally {
+    roleAssignSubmitLoading.value = false
   }
 }
 
@@ -317,6 +413,12 @@ async function handleToggleStatus(row: UserListItem) {
 
     ElMessage.error(resolveErrorMessage(error, `${actionText}失败`))
   }
+}
+
+function handleCloseAssignRoles() {
+  roleAssignVisible.value = false
+  assigningUser.value = null
+  assignRoleIds.value = []
 }
 
 function optionalText(value: string) {
@@ -356,6 +458,10 @@ function formatRoleNames(roles: Array<{ name: string }>) {
   return roles.map(role => role.name).join(' / ')
 }
 
+function formatRoleOptionLabel(role: SystemRoleListItem) {
+  return `${role.name} (${role.code})`
+}
+
 function formatPostNames(posts: Array<{ name: string }>) {
   if (!posts.length) {
     return '未分配'
@@ -377,6 +483,7 @@ function resolveErrorMessage(error: unknown, fallback: string) {
 
 onMounted(() => {
   void loadUsers()
+  void loadRoleOptions()
 })
 </script>
 
@@ -613,7 +720,7 @@ onMounted(() => {
         <el-table-column
           label="操作"
           fixed="right"
-          width="220"
+          width="320"
         >
           <template #default="{ row }">
             <el-button
@@ -631,6 +738,14 @@ onMounted(() => {
             >
               <el-icon><EditPen /></el-icon>
               <span>编辑</span>
+            </el-button>
+            <el-button
+              link
+              type="primary"
+              @click="handleAssignRoles(row.id)"
+            >
+              <el-icon><UserFilled /></el-icon>
+              <span>分配角色</span>
             </el-button>
             <el-button
               link
@@ -857,7 +972,7 @@ onMounted(() => {
 
           <section class="user-management__form-section user-management__panel">
             <strong>组织与状态</strong>
-            <span>设置部门归属，并确认新建账号的启用状态。</span>
+            <span>设置部门归属、角色绑定，并确认新建账号的启用状态。</span>
 
             <div class="user-management__form-grid">
               <el-form-item label="部门">
@@ -867,6 +982,28 @@ onMounted(() => {
                     :key="option.value"
                     :label="option.label"
                     :value="option.value"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item
+                label="角色"
+                class="user-management__form-span-2"
+              >
+                <el-select
+                  v-model="form.roleIds"
+                  multiple
+                  collapse-tags
+                  collapse-tags-tooltip
+                  placeholder="请选择角色"
+                  :loading="roleOptionsLoading"
+                >
+                  <el-option
+                    v-for="role in roleOptions"
+                    :key="role.id"
+                    :label="formatRoleOptionLabel(role)"
+                    :value="role.id"
+                    :disabled="role.status !== 1"
                   />
                 </el-select>
               </el-form-item>
@@ -912,6 +1049,57 @@ onMounted(() => {
           @click="handleSubmit"
         >
           {{ isCreateMode ? '创建用户' : '保存修改' }}
+        </el-button>
+      </template>
+    </PageModal>
+
+    <PageModal
+      v-model="roleAssignVisible"
+      title="分配角色"
+      width="640px"
+      @cancel="handleCloseAssignRoles"
+    >
+      <div
+        v-loading="roleAssignLoading"
+        class="user-management__modal-body"
+      >
+        <section class="user-management__form-section user-management__panel">
+          <strong>{{ assigningUser?.nickname ?? '目标用户' }}</strong>
+          <span>独立维护当前用户的角色集合，保存后会直接覆盖原有角色关系。</span>
+
+          <el-form label-position="top">
+            <el-form-item label="角色选择">
+              <el-select
+                v-model="assignRoleIds"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                placeholder="请选择角色"
+                :loading="roleOptionsLoading"
+              >
+                <el-option
+                  v-for="role in roleOptions"
+                  :key="role.id"
+                  :label="formatRoleOptionLabel(role)"
+                  :value="role.id"
+                  :disabled="role.status !== 1"
+                />
+              </el-select>
+            </el-form-item>
+          </el-form>
+        </section>
+      </div>
+
+      <template #footer>
+        <el-button @click="handleCloseAssignRoles">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="roleAssignSubmitLoading"
+          @click="handleSubmitAssignedRoles"
+        >
+          保存角色
         </el-button>
       </template>
     </PageModal>

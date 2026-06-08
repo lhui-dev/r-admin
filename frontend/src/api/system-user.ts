@@ -88,6 +88,7 @@ export interface CreateUserPayload {
   gender?: number
   dept_id?: number
   status?: number
+  role_ids?: number[]
   remark?: string
 }
 
@@ -98,6 +99,7 @@ export interface UpdateUserPayload {
   email?: string
   gender?: number
   dept_id?: number
+  role_ids?: number[]
   remark?: string
 }
 
@@ -108,6 +110,10 @@ export interface UserMutationData {
 
 export interface UserStatusMutationData extends UserMutationData {
   status: number
+}
+
+export interface UpdateUserRolesPayload {
+  role_ids: number[]
 }
 
 export function fetchSystemUsers(params: UserListQuery) {
@@ -133,5 +139,12 @@ export function updateSystemUserStatus(userId: number, status: number) {
   return request.patch<ApiResponse<UserStatusMutationData>, ApiResponse<UserStatusMutationData>>(
     `/system/users/${userId}/status`,
     { status },
+  )
+}
+
+export function updateSystemUserRoles(userId: number, payload: UpdateUserRolesPayload) {
+  return request.patch<ApiResponse<UserMutationData>, ApiResponse<UserMutationData>>(
+    `/system/users/${userId}/roles`,
+    payload,
   )
 }

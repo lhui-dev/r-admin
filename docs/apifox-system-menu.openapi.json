@@ -1,0 +1,902 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "r-admin System Menu Management API",
+    "version": "0.1.0",
+    "description": "Focused OpenAPI import file for APIFox. Covers the system menu management endpoints for tree query, detail, create, update, status change, and soft delete."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8080",
+      "description": "Local backend service"
+    }
+  ],
+  "tags": [
+    {
+      "name": "System Menu",
+      "description": "System menu management endpoints backed by sys_menu"
+    }
+  ],
+  "paths": {
+    "/api/system/menus/tree": {
+      "get": {
+        "tags": [
+          "System Menu"
+        ],
+        "summary": "Get system menu tree",
+        "description": "Returns the menu tree for management pages. Supports keyword, status, and menu_type filters.",
+        "operationId": "getSystemMenuTree",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "description": "Fuzzy search by menu name, route name, route path, component path, or permission code.",
+            "schema": {
+              "type": "string",
+              "example": "菜单"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Menu status. `1` means enabled and `0` means disabled.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "enum": [
+                0,
+                1
+              ],
+              "example": 1
+            }
+          },
+          {
+            "name": "menu_type",
+            "in": "query",
+            "required": false,
+            "description": "Menu node type.",
+            "schema": {
+              "$ref": "#/components/schemas/MenuType"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Menu tree payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MenuTreeResponseEnvelope"
+                },
+                "example": {
+                  "code": 0,
+                  "message": "ok",
+                  "data": {
+                    "items": [
+                      {
+                        "id": 21000,
+                        "parent_id": 0,
+                        "menu_name": "系统管理",
+                        "menu_type": "catalog",
+                        "route_name": "System",
+                        "route_path": "/system",
+                        "component_path": null,
+                        "permission_code": null,
+                        "icon": "Setting",
+                        "sort_no": 20,
+                        "visible": true,
+                        "keep_alive": false,
+                        "is_external": false,
+                        "status": 1,
+                        "remark": "系统管理目录",
+                        "created_at": "2026-06-08T00:00:00Z",
+                        "updated_at": "2026-06-08T00:00:00Z",
+                        "children": [
+                          {
+                            "id": 21030,
+                            "parent_id": 21000,
+                            "menu_name": "菜单管理",
+                            "menu_type": "menu",
+                            "route_name": "SystemMenu",
+                            "route_path": "/system/menu",
+                            "component_path": "system/menu/index",
+                            "permission_code": "system:menu:list",
+                            "icon": "Menu",
+                            "sort_no": 30,
+                            "visible": true,
+                            "keep_alive": true,
+                            "is_external": false,
+                            "status": 1,
+                            "remark": "菜单管理页面",
+                            "created_at": "2026-06-08T00:00:00Z",
+                            "updated_at": "2026-06-08T00:00:00Z",
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/system/menus": {
+      "post": {
+        "tags": [
+          "System Menu"
+        ],
+        "summary": "Create system menu",
+        "description": "Creates a new menu node. The backend validates parent existence, menu_type, status, route_path format, and permission_code uniqueness.",
+        "operationId": "postSystemMenu",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMenuRequest"
+              },
+              "example": {
+                "parent_id": 21000,
+                "menu_name": "菜单管理",
+                "menu_type": "menu",
+                "route_name": "SystemMenu",
+                "route_path": "/system/menu",
+                "component_path": "system/menu/index",
+                "permission_code": "system:menu:list",
+                "icon": "Menu",
+                "sort_no": 30,
+                "visible": true,
+                "keep_alive": true,
+                "is_external": false,
+                "status": 1,
+                "remark": "菜单管理页面"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Menu created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MenuMutationResponseEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/system/menus/{id}": {
+      "get": {
+        "tags": [
+          "System Menu"
+        ],
+        "summary": "Get system menu detail",
+        "description": "Returns a single menu node by id.",
+        "operationId": "getSystemMenuDetail",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MenuId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Menu detail payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MenuDetailResponseEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "System Menu"
+        ],
+        "summary": "Update system menu",
+        "description": "Partially updates a menu node. The backend preserves omitted fields and rejects parent cycles.",
+        "operationId": "patchSystemMenu",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MenuId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMenuRequest"
+              },
+              "example": {
+                "menu_name": "菜单管理",
+                "sort_no": 30,
+                "visible": true,
+                "remark": "维护菜单树、路由和权限标识"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Menu updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MenuMutationResponseEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "System Menu"
+        ],
+        "summary": "Delete system menu",
+        "description": "Soft deletes a menu node. The backend rejects deletion when the menu has child nodes or its permission code is assigned to roles.",
+        "operationId": "deleteSystemMenu",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MenuId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Menu soft deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MenuMutationResponseEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/system/menus/{id}/status": {
+      "patch": {
+        "tags": [
+          "System Menu"
+        ],
+        "summary": "Update system menu status",
+        "description": "Enables or disables a menu node. `0` means disabled and `1` means enabled.",
+        "operationId": "patchSystemMenuStatus",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MenuId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMenuStatusRequest"
+              },
+              "example": {
+                "status": 0
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Menu status updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MenuStatusMutationResponseEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Use `Authorization: Bearer {{access_token}}` after logging in with `admin / Admin@123456`."
+      }
+    },
+    "parameters": {
+      "MenuId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Menu id. Seeded menu management page id is `21030`.",
+        "schema": {
+          "type": "integer",
+          "format": "int64",
+          "example": 21030
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Request validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, invalid, expired, or revoked bearer token",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Menu not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Conflict such as duplicate permission_code, child menu protection, or role assignment protection",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "MenuType": {
+        "type": "string",
+        "enum": [
+          "catalog",
+          "menu",
+          "button",
+          "api"
+        ],
+        "example": "menu"
+      },
+      "MenuNode": {
+        "type": "object",
+        "required": [
+          "id",
+          "parent_id",
+          "menu_name",
+          "menu_type",
+          "sort_no",
+          "visible",
+          "keep_alive",
+          "is_external",
+          "status",
+          "created_at",
+          "updated_at",
+          "children"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 21030
+          },
+          "parent_id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 21000
+          },
+          "menu_name": {
+            "type": "string",
+            "example": "菜单管理"
+          },
+          "menu_type": {
+            "$ref": "#/components/schemas/MenuType"
+          },
+          "route_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "SystemMenu"
+          },
+          "route_path": {
+            "type": "string",
+            "nullable": true,
+            "example": "/system/menu"
+          },
+          "component_path": {
+            "type": "string",
+            "nullable": true,
+            "example": "system/menu/index"
+          },
+          "permission_code": {
+            "type": "string",
+            "nullable": true,
+            "example": "system:menu:list"
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true,
+            "example": "Menu"
+          },
+          "sort_no": {
+            "type": "integer",
+            "format": "int32",
+            "example": 30
+          },
+          "visible": {
+            "type": "boolean",
+            "example": true
+          },
+          "keep_alive": {
+            "type": "boolean",
+            "example": true
+          },
+          "is_external": {
+            "type": "boolean",
+            "example": false
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              0,
+              1
+            ],
+            "example": 1
+          },
+          "remark": {
+            "type": "string",
+            "nullable": true,
+            "example": "菜单管理页面"
+          },
+          "created_at": {
+            "type": "string",
+            "example": "2026-06-08T00:00:00Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "example": "2026-06-08T00:00:00Z"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MenuNode"
+            }
+          }
+        }
+      },
+      "MenuTreeData": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MenuNode"
+            }
+          }
+        }
+      },
+      "CreateMenuRequest": {
+        "type": "object",
+        "required": [
+          "menu_name",
+          "menu_type"
+        ],
+        "properties": {
+          "parent_id": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0,
+            "example": 21000
+          },
+          "menu_name": {
+            "type": "string",
+            "example": "菜单管理"
+          },
+          "menu_type": {
+            "$ref": "#/components/schemas/MenuType"
+          },
+          "route_name": {
+            "type": "string",
+            "example": "SystemMenu"
+          },
+          "route_path": {
+            "type": "string",
+            "example": "/system/menu"
+          },
+          "component_path": {
+            "type": "string",
+            "example": "system/menu/index"
+          },
+          "permission_code": {
+            "type": "string",
+            "example": "system:menu:list"
+          },
+          "icon": {
+            "type": "string",
+            "example": "Menu"
+          },
+          "sort_no": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "example": 30
+          },
+          "visible": {
+            "type": "boolean",
+            "default": true,
+            "example": true
+          },
+          "keep_alive": {
+            "type": "boolean",
+            "default": false,
+            "example": true
+          },
+          "is_external": {
+            "type": "boolean",
+            "default": false,
+            "example": false
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              0,
+              1
+            ],
+            "default": 1,
+            "example": 1
+          },
+          "remark": {
+            "type": "string",
+            "example": "菜单管理页面"
+          }
+        }
+      },
+      "UpdateMenuRequest": {
+        "type": "object",
+        "description": "All fields are optional. Omitted fields are preserved by the backend.",
+        "properties": {
+          "parent_id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 21000
+          },
+          "menu_name": {
+            "type": "string",
+            "example": "菜单管理"
+          },
+          "menu_type": {
+            "$ref": "#/components/schemas/MenuType"
+          },
+          "route_name": {
+            "type": "string",
+            "example": "SystemMenu"
+          },
+          "route_path": {
+            "type": "string",
+            "example": "/system/menu"
+          },
+          "component_path": {
+            "type": "string",
+            "example": "system/menu/index"
+          },
+          "permission_code": {
+            "type": "string",
+            "example": "system:menu:list"
+          },
+          "icon": {
+            "type": "string",
+            "example": "Menu"
+          },
+          "sort_no": {
+            "type": "integer",
+            "format": "int32",
+            "example": 30
+          },
+          "visible": {
+            "type": "boolean",
+            "example": true
+          },
+          "keep_alive": {
+            "type": "boolean",
+            "example": true
+          },
+          "is_external": {
+            "type": "boolean",
+            "example": false
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              0,
+              1
+            ],
+            "example": 1
+          },
+          "remark": {
+            "type": "string",
+            "example": "维护菜单树、路由和权限标识"
+          }
+        }
+      },
+      "UpdateMenuStatusRequest": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              0,
+              1
+            ],
+            "example": 0
+          }
+        }
+      },
+      "MenuMutationData": {
+        "type": "object",
+        "required": [
+          "id",
+          "menu_name",
+          "menu_type"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 21030
+          },
+          "menu_name": {
+            "type": "string",
+            "example": "菜单管理"
+          },
+          "menu_type": {
+            "$ref": "#/components/schemas/MenuType"
+          }
+        }
+      },
+      "MenuStatusMutationData": {
+        "type": "object",
+        "required": [
+          "id",
+          "menu_name",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 21030
+          },
+          "menu_name": {
+            "type": "string",
+            "example": "菜单管理"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              0,
+              1
+            ],
+            "example": 1
+          }
+        }
+      },
+      "MenuTreeResponseEnvelope": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "ok"
+          },
+          "data": {
+            "$ref": "#/components/schemas/MenuTreeData"
+          }
+        }
+      },
+      "MenuDetailResponseEnvelope": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "ok"
+          },
+          "data": {
+            "$ref": "#/components/schemas/MenuNode"
+          }
+        }
+      },
+      "MenuMutationResponseEnvelope": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "ok"
+          },
+          "data": {
+            "$ref": "#/components/schemas/MenuMutationData"
+          }
+        }
+      },
+      "MenuStatusMutationResponseEnvelope": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "ok"
+          },
+          "data": {
+            "$ref": "#/components/schemas/MenuStatusMutationData"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 409
+          },
+          "message": {
+            "type": "string",
+            "example": "menu permission has role assignments and cannot be deleted"
+          },
+          "data": {
+            "nullable": true
+          }
+        }
+      }
+    }
+  }
+}

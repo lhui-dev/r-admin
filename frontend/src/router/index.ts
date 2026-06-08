@@ -19,6 +19,7 @@ import DashboardView from '@/views/dashboard/DashboardView.vue'
 import NotFoundView from '@/views/not-found/NotFoundView.vue'
 import ConstructionView from '@/views/placeholder/ConstructionView.vue'
 import ProfileView from '@/views/profile/ProfileView.vue'
+import MenuManagementView from '@/views/system/menu/MenuManagementView.vue'
 import RolePermissionConfigView from '@/views/system/role/RolePermissionConfigView.vue'
 import RoleManagementView from '@/views/system/role/RoleManagementView.vue'
 import SystemView from '@/views/system/SystemView.vue'
@@ -70,10 +71,7 @@ export const routes: RouteRecordRaw[] = [
       {
         path: 'system/menu',
         name: 'system-menu',
-        component: ConstructionView,
-        meta: {
-          featureKey: 'menus',
-        },
+        component: MenuManagementView,
       },
       {
         path: 'system/dept',

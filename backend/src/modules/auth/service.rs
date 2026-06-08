@@ -512,7 +512,7 @@ mod tests {
             22000,
             "操作日志",
             "menu",
-            Some("/audit/operation-log"),
+            Some("/future/operation-log"),
             None,
         );
 

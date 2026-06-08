@@ -94,7 +94,7 @@ export interface UpdateRolePermissionsPayload {
 export async function fetchSystemRoles(params: RoleListQuery) {
   return request.get<ApiResponse<RoleListResponseData>, ApiResponse<RoleListResponseData>>(
     '/system/roles',
-    { params },
+    {params},
   )
 }
 
@@ -121,7 +121,7 @@ export async function updateSystemRole(roleId: number, payload: UpdateRolePayloa
 export async function updateSystemRoleStatus(roleId: number, status: number) {
   return request.patch<ApiResponse<RoleStatusMutationData>, ApiResponse<RoleStatusMutationData>>(
     `/system/roles/${roleId}/status`,
-    { status },
+    {status},
   )
 }
 

@@ -93,6 +93,7 @@ pub struct CreateUserRequest {
     pub gender: Option<i16>,
     pub dept_id: Option<i64>,
     pub status: Option<i16>,
+    pub role_ids: Option<Vec<i64>>,
     pub remark: Option<String>,
 }
 
@@ -104,12 +105,18 @@ pub struct UpdateUserRequest {
     pub email: Option<String>,
     pub gender: Option<i16>,
     pub dept_id: Option<i64>,
+    pub role_ids: Option<Vec<i64>>,
     pub remark: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateUserStatusRequest {
     pub status: i16,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateUserRolesRequest {
+    pub role_ids: Vec<i64>,
 }
 
 #[derive(Debug, Serialize)]

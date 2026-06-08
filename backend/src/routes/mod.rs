@@ -31,6 +31,10 @@ pub fn build_router(state: AppState) -> Router {
             patch(system_user_handler::update_status),
         )
         .route(
+            "/api/system/users/{id}/roles",
+            patch(system_user_handler::update_roles),
+        )
+        .route(
             "/api/system/roles",
             get(system_role_handler::list).post(system_role_handler::create),
         )

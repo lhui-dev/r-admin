@@ -7,9 +7,9 @@ use crate::{
         password,
     },
     modules::system_user::dto::{
-        CreateUserRequest, PaginationMeta, UpdateUserRequest, UpdateUserStatusRequest,
-        UserDeptSummary, UserDetailData, UserListData, UserListItem, UserListQuery,
-        UserMutationData, UserPostSummary, UserRoleSummary, UserStatusMutationData,
+        CreateUserRequest, PaginationMeta, UpdateUserRequest, UpdateUserRolesRequest,
+        UpdateUserStatusRequest, UserDeptSummary, UserDetailData, UserListData, UserListItem,
+        UserListQuery, UserMutationData, UserPostSummary, UserRoleSummary, UserStatusMutationData,
     },
     state::AppState,
 };
@@ -79,6 +79,12 @@ struct UserIdentityRow {
     username: String,
     nickname: String,
     is_super_admin: bool,
+}
+
+#[derive(Debug, Clone, FromRow)]
+struct RoleTargetRow {
+    id: i64,
+    role_code: String,
 }
 
 #[derive(Debug, Clone, FromRow)]
@@ -261,6 +267,7 @@ pub async fn create_user(
     let email = normalize_optional_field(payload.email, "email")?;
     let remark = normalize_optional_field(payload.remark, "remark")?;
     let status = validate_status(payload.status.unwrap_or(1))?;
+    let role_ids = normalize_role_ids(payload.role_ids.unwrap_or_default())?;
 
     let mut tx = state.db.begin().await?;
 
@@ -273,6 +280,8 @@ pub async fn create_user(
     )
     .await?;
     ensure_dept_exists(&mut tx, payload.dept_id).await?;
+    let role_targets = find_assignable_roles_by_ids(&mut tx, &role_ids).await?;
+    ensure_requested_roles_exist(&role_ids, &role_targets)?;
 
     let new_user_id = next_user_id(&mut tx).await?;
     let password_hash = password::hash_password(&password_text)?;
@@ -318,6 +327,8 @@ pub async fn create_user(
     .execute(&mut *tx)
     .await?;
 
+    replace_user_roles(&mut tx, new_user_id, &role_targets, operator_user_id).await?;
+
     tx.commit().await?;
 
     Ok(UserMutationData {
@@ -342,6 +353,7 @@ pub async fn update_user(
     let mobile = normalize_optional_field(payload.mobile, "mobile")?;
     let email = normalize_optional_field(payload.email, "email")?;
     let remark = normalize_optional_field(payload.remark, "remark")?;
+    let role_ids = payload.role_ids.map(normalize_role_ids).transpose()?;
 
     if nickname.is_none()
         && real_name.is_none()
@@ -349,6 +361,7 @@ pub async fn update_user(
         && email.is_none()
         && payload.gender.is_none()
         && payload.dept_id.is_none()
+        && role_ids.is_none()
         && remark.is_none()
     {
         return Err(AppError::bad_request(
@@ -365,6 +378,14 @@ pub async fn update_user(
     )
     .await?;
     ensure_dept_exists(&mut tx, payload.dept_id).await?;
+    let role_targets = if let Some(role_ids) = role_ids.as_ref() {
+        let role_targets = find_assignable_roles_by_ids(&mut tx, role_ids).await?;
+        ensure_requested_roles_exist(role_ids, &role_targets)?;
+        ensure_super_admin_role_integrity(&current_user, &role_targets)?;
+        Some(role_targets)
+    } else {
+        None
+    };
 
     sqlx::query(
         r#"
@@ -393,6 +414,10 @@ pub async fn update_user(
     .bind(operator_user_id)
     .execute(&mut *tx)
     .await?;
+
+    if let Some(role_targets) = role_targets.as_ref() {
+        replace_user_roles(&mut tx, user_id, role_targets, operator_user_id).await?;
+    }
 
     tx.commit().await?;
 
@@ -444,6 +469,45 @@ pub async fn update_user_status(
         id: current_user.id,
         username: current_user.username,
         status,
+    })
+}
+
+pub async fn update_user_roles(
+    state: &AppState,
+    operator_user_id: i64,
+    user_id: i64,
+    payload: UpdateUserRolesRequest,
+) -> AppResult<UserMutationData> {
+    let role_ids = normalize_role_ids(payload.role_ids)?;
+    let mut tx = state.db.begin().await?;
+    let current_user = find_user_identity(&mut tx, user_id)
+        .await?
+        .ok_or_else(|| AppError::not_found("user not found"))?;
+    let role_targets = find_assignable_roles_by_ids(&mut tx, &role_ids).await?;
+
+    ensure_requested_roles_exist(&role_ids, &role_targets)?;
+    ensure_super_admin_role_integrity(&current_user, &role_targets)?;
+    replace_user_roles(&mut tx, user_id, &role_targets, operator_user_id).await?;
+
+    sqlx::query(
+        r#"
+        UPDATE sys_user
+        SET updated_at = NOW(),
+            updated_by = $2
+        WHERE id = $1
+          AND is_deleted = FALSE
+        "#,
+    )
+    .bind(user_id)
+    .bind(operator_user_id)
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(UserMutationData {
+        id: current_user.id,
+        username: current_user.username,
     })
 }
 
@@ -550,6 +614,141 @@ async fn next_user_id(tx: &mut Transaction<'_, Postgres>) -> AppResult<i64> {
     .await?;
 
     Ok(row.next_id)
+}
+
+async fn next_user_role_id(tx: &mut Transaction<'_, Postgres>) -> AppResult<i64> {
+    #[derive(Debug, FromRow)]
+    struct NextIdRow {
+        next_id: i64,
+    }
+
+    let row = sqlx::query_as::<_, NextIdRow>(
+        r#"
+        SELECT COALESCE(MAX(id), 30000) + 10 AS next_id
+        FROM sys_user_role
+        "#,
+    )
+    .fetch_one(&mut **tx)
+    .await?;
+
+    Ok(row.next_id)
+}
+
+async fn find_assignable_roles_by_ids(
+    tx: &mut Transaction<'_, Postgres>,
+    role_ids: &[i64],
+) -> AppResult<Vec<RoleTargetRow>> {
+    if role_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    sqlx::query_as::<_, RoleTargetRow>(
+        r#"
+        SELECT
+            id,
+            role_code
+        FROM sys_role
+        WHERE id = ANY($1)
+          AND is_deleted = FALSE
+          AND status = 1
+        ORDER BY role_sort, id
+        "#,
+    )
+    .bind(role_ids)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(Into::into)
+}
+
+async fn replace_user_roles(
+    tx: &mut Transaction<'_, Postgres>,
+    user_id: i64,
+    role_targets: &[RoleTargetRow],
+    operator_user_id: i64,
+) -> AppResult<()> {
+    sqlx::query(
+        r#"
+        DELETE FROM sys_user_role
+        WHERE user_id = $1
+        "#,
+    )
+    .bind(user_id)
+    .execute(&mut **tx)
+    .await?;
+
+    if role_targets.is_empty() {
+        return Ok(());
+    }
+
+    let mut next_id = next_user_role_id(tx).await?;
+    for role in role_targets {
+        sqlx::query(
+            r#"
+            INSERT INTO sys_user_role (
+                id,
+                user_id,
+                role_id,
+                created_at,
+                created_by
+            ) VALUES ($1, $2, $3, NOW(), $4)
+            "#,
+        )
+        .bind(next_id)
+        .bind(user_id)
+        .bind(role.id)
+        .bind(operator_user_id)
+        .execute(&mut **tx)
+        .await?;
+
+        next_id += 10;
+    }
+
+    Ok(())
+}
+
+fn ensure_requested_roles_exist(
+    requested_role_ids: &[i64],
+    role_targets: &[RoleTargetRow],
+) -> AppResult<()> {
+    if requested_role_ids.len() == role_targets.len() {
+        return Ok(());
+    }
+
+    let existing_ids = role_targets
+        .iter()
+        .map(|role| role.id)
+        .collect::<std::collections::BTreeSet<_>>();
+    let invalid_ids = requested_role_ids
+        .iter()
+        .filter(|role_id| !existing_ids.contains(role_id))
+        .map(|role_id| role_id.to_string())
+        .collect::<Vec<_>>();
+
+    Err(AppError::conflict(format!(
+        "role_id does not exist or is disabled: {}",
+        invalid_ids.join(", ")
+    )))
+}
+
+fn ensure_super_admin_role_integrity(
+    current_user: &UserIdentityRow,
+    role_targets: &[RoleTargetRow],
+) -> AppResult<()> {
+    if !current_user.is_super_admin {
+        return Ok(());
+    }
+
+    let retains_super_admin_role = role_targets
+        .iter()
+        .any(|role| role.role_code == "super_admin");
+
+    if !retains_super_admin_role {
+        return Err(AppError::forbidden(
+            "super admin user must retain the super_admin role",
+        ));
+    }
+
+    Ok(())
 }
 
 async fn ensure_unique_user_fields(
@@ -749,4 +948,23 @@ fn validate_status(status: i16) -> AppResult<i16> {
     }
 
     Ok(status)
+}
+
+fn normalize_role_ids(role_ids: Vec<i64>) -> AppResult<Vec<i64>> {
+    let mut normalized = Vec::new();
+    let mut seen = std::collections::BTreeSet::new();
+
+    for role_id in role_ids {
+        if role_id <= 0 {
+            return Err(AppError::bad_request(
+                "role_ids must contain positive integers",
+            ));
+        }
+
+        if seen.insert(role_id) {
+            normalized.push(role_id);
+        }
+    }
+
+    Ok(normalized)
 }

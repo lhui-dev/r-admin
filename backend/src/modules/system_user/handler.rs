@@ -8,8 +8,8 @@ use crate::{
     middleware::auth::AuthUser,
     modules::system_user::{
         dto::{
-            CreateUserRequest, UpdateUserRequest, UpdateUserStatusRequest, UserDetailData,
-            UserListData, UserListQuery, UserMutationData, UserStatusMutationData,
+            CreateUserRequest, UpdateUserRequest, UpdateUserRolesRequest, UpdateUserStatusRequest,
+            UserDetailData, UserListData, UserListQuery, UserMutationData, UserStatusMutationData,
         },
         service,
     },
@@ -60,5 +60,15 @@ pub async fn update_status(
     Json(payload): Json<UpdateUserStatusRequest>,
 ) -> AppResult<Json<ApiResponse<UserStatusMutationData>>> {
     let response = service::update_user_status(&state, auth_user.user_id, user_id, payload).await?;
+    Ok(Json(ApiResponse::ok(response)))
+}
+
+pub async fn update_roles(
+    State(state): State<AppState>,
+    auth_user: AuthUser,
+    Path(user_id): Path<i64>,
+    Json(payload): Json<UpdateUserRolesRequest>,
+) -> AppResult<Json<ApiResponse<UserMutationData>>> {
+    let response = service::update_user_roles(&state, auth_user.user_id, user_id, payload).await?;
     Ok(Json(ApiResponse::ok(response)))
 }

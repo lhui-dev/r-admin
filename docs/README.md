@@ -18,11 +18,12 @@
 12. [动态菜单初始化方案](./dynamic-menu-init-plan.md)
 13. [菜单接口设计](./auth-menus-api-design.md)
 14. [后端菜单实现说明](./backend-auth-menus-implementation-plan.md)
-15. [用户管理接口设计](./user-management-api-design.md)
-16. [用户角色绑定真实化执行清单](./user-role-assignment-plan.md)
-17. [角色权限配置接口设计](./role-permission-config-api-design.md)
-18. [多租户 RBAC 扩展规划](./multi-tenant-rbac-extension-plan.md)
-19. [CI 工作流说明](./ci-workflows.md)
+15. [菜单管理模块实现计划](./system-menu-management-plan.md)
+16. [用户管理接口设计](./user-management-api-design.md)
+17. [用户角色绑定真实化执行清单](./user-role-assignment-plan.md)
+18. [角色权限配置接口设计](./role-permission-config-api-design.md)
+19. [多租户 RBAC 扩展规划](./multi-tenant-rbac-extension-plan.md)
+20. [CI 工作流说明](./ci-workflows.md)
 
 ## 2. 图与模型
 
@@ -54,11 +55,12 @@
 9. 再看 [动态菜单初始化方案](./dynamic-menu-init-plan.md)
 10. 再看 [菜单接口设计](./auth-menus-api-design.md)
 11. 再看 [后端菜单实现说明](./backend-auth-menus-implementation-plan.md)
-12. 再看 [用户管理接口设计](./user-management-api-design.md)
-13. 再看 [用户角色绑定真实化执行清单](./user-role-assignment-plan.md)
-14. 再看 [角色权限配置接口设计](./role-permission-config-api-design.md)
-15. 再看 [APIFox 联调说明](./apifox-auth-debug.md)
-16. 再看 [APIFox 调试脚本清单](./apifox-debug-scripts.md)
-17. 再看 [多租户 RBAC 扩展规划](./multi-tenant-rbac-extension-plan.md)
-18. 再看 [CI 工作流说明](./ci-workflows.md)
-19. 最后结合 [Docker 容器化说明](./dockerization.md) 落地环境
+12. 再看 [菜单管理模块实现计划](./system-menu-management-plan.md)
+13. 再看 [用户管理接口设计](./user-management-api-design.md)
+14. 再看 [用户角色绑定真实化执行清单](./user-role-assignment-plan.md)
+15. 再看 [角色权限配置接口设计](./role-permission-config-api-design.md)
+16. 再看 [APIFox 联调说明](./apifox-auth-debug.md)
+17. 再看 [APIFox 调试脚本清单](./apifox-debug-scripts.md)
+18. 再看 [多租户 RBAC 扩展规划](./multi-tenant-rbac-extension-plan.md)
+19. 再看 [CI 工作流说明](./ci-workflows.md)
+20. 最后结合 [Docker 容器化说明](./dockerization.md) 落地环境

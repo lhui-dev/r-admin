@@ -1,5 +1,5 @@
 use sqlx::{FromRow, Postgres, Transaction};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::{
     common::error::{AppError, AppResult},
@@ -619,7 +619,7 @@ async fn find_active_menu_rows(state: &AppState) -> AppResult<Vec<MenuRow>> {
         FROM sys_menu
         WHERE is_deleted = FALSE
           AND status = 1
-          AND menu_type IN ('catalog', 'menu')
+          AND menu_type IN ('catalog', 'menu', 'button', 'api')
         ORDER BY parent_id, sort_no, id
         "#,
     )
@@ -651,12 +651,23 @@ fn assemble_permission_tree(
     menu_rows: Vec<MenuRow>,
     permission_rows: Vec<PermissionRow>,
 ) -> Vec<RolePermissionTreeNode> {
+    let valid_permission_codes = permission_rows
+        .iter()
+        .map(|permission| permission.permission_code.clone())
+        .collect::<HashSet<_>>();
+    let menu_leaf_permission_codes = menu_rows
+        .iter()
+        .filter(|row| matches!(row.menu_type.as_str(), "button" | "api"))
+        .filter_map(|row| row.permission_code.as_deref())
+        .map(ToOwned::to_owned)
+        .collect::<HashSet<_>>();
     let menu_lookup = menu_rows
         .iter()
         .cloned()
         .map(|row| (row.id, row))
         .collect::<HashMap<_, _>>();
-    let menu_permission_nodes = group_permissions_by_menu(&menu_rows, permission_rows);
+    let menu_permission_nodes =
+        group_permissions_by_menu(&menu_rows, permission_rows, &menu_leaf_permission_codes);
 
     let mut children_by_parent: HashMap<i64, Vec<MenuRow>> = HashMap::new();
     for row in &menu_rows {
@@ -670,8 +681,13 @@ fn assemble_permission_tree(
         children.sort_by_key(|row| (row.sort_no, row.id));
     }
 
-    let mut root_nodes =
-        build_menu_nodes(0, &children_by_parent, &menu_permission_nodes, &menu_lookup);
+    let mut root_nodes = build_menu_nodes(
+        0,
+        &children_by_parent,
+        &menu_permission_nodes,
+        &menu_lookup,
+        &valid_permission_codes,
+    );
     if let Some(ungrouped_module) = build_ungrouped_module(&menu_permission_nodes) {
         root_nodes.push(ungrouped_module);
     }
@@ -682,6 +698,7 @@ fn assemble_permission_tree(
 fn group_permissions_by_menu(
     menu_rows: &[MenuRow],
     permission_rows: Vec<PermissionRow>,
+    menu_leaf_permission_codes: &HashSet<String>,
 ) -> HashMap<i64, Vec<RolePermissionTreeNode>> {
     let menu_prefixes = menu_rows
         .iter()
@@ -698,6 +715,10 @@ fn group_permissions_by_menu(
     let mut ungrouped_permissions = Vec::new();
 
     for permission in permission_rows {
+        if menu_leaf_permission_codes.contains(&permission.permission_code) {
+            continue;
+        }
+
         let matched_menu_id = menu_prefixes
             .iter()
             .filter(|(_, prefix, _)| permission.permission_code.starts_with(prefix))
@@ -732,17 +753,35 @@ fn build_menu_nodes(
     children_by_parent: &HashMap<i64, Vec<MenuRow>>,
     permission_nodes_by_menu: &HashMap<i64, Vec<RolePermissionTreeNode>>,
     menu_lookup: &HashMap<i64, MenuRow>,
+    valid_permission_codes: &HashSet<String>,
 ) -> Vec<RolePermissionTreeNode> {
     children_by_parent
         .get(&parent_id)
         .into_iter()
         .flatten()
         .filter_map(|row| {
+            // Button/API menu nodes become assignable leaves only when they
+            // already have a backing sys_permission record.
+            if matches!(row.menu_type.as_str(), "button" | "api") {
+                let permission_code = row.permission_code.as_deref()?;
+                if !valid_permission_codes.contains(permission_code) {
+                    return None;
+                }
+
+                return Some(RolePermissionTreeNode {
+                    id: permission_code.to_string(),
+                    name: row.menu_name.clone(),
+                    r#type: row.menu_type.clone(),
+                    children: Vec::new(),
+                });
+            }
+
             let mut children = build_menu_nodes(
                 row.id,
                 children_by_parent,
                 permission_nodes_by_menu,
                 menu_lookup,
+                valid_permission_codes,
             );
 
             if row.menu_type == "menu" {

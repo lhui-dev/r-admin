@@ -142,7 +142,27 @@ async function loadPermissionConfig() {
 }
 
 function handleTreeCheck() {
-  checkedPermissionIds.value = normalizeCheckedLeafIds()
+  const keyword = treeKeyword.value.trim()
+  if (!keyword) {
+    checkedPermissionIds.value = normalizeCheckedLeafIds()
+    return
+  }
+
+  const checkedKeys = (treeRef.value?.getCheckedKeys(false) ?? []).map(key => String(key))
+  const checkedKeySet = new Set(checkedKeys)
+  const visibleLeafIds = collectLeafPermissionIds(permissionTree.value, keyword)
+  const nextCheckedIds = new Set(checkedLeafIds.value)
+
+  visibleLeafIds.forEach((permissionId) => {
+    if (checkedKeySet.has(permissionId)) {
+      nextCheckedIds.add(permissionId)
+      return
+    }
+
+    nextCheckedIds.delete(permissionId)
+  })
+
+  checkedPermissionIds.value = sortPermissionIdsByTreeOrder([...nextCheckedIds])
 }
 
 function handleResetChecked() {
@@ -163,14 +183,17 @@ async function handleSave() {
   submitLoading.value = true
 
   try {
-    const nextCheckedIds = normalizeCheckedLeafIds()
+    const nextCheckedIds = [...checkedLeafIds.value]
     const response = await updateSystemRolePermissions(roleId.value, {
       permission_ids: nextCheckedIds,
     })
+    const savedPermissionIds = response.data.permissions.map(item => item.id)
 
     roleDetail.value = response.data
-    checkedPermissionIds.value = nextCheckedIds
-    initialCheckedPermissionIds.value = [...nextCheckedIds]
+    checkedPermissionIds.value = savedPermissionIds
+    initialCheckedPermissionIds.value = [...savedPermissionIds]
+    await nextTick()
+    treeRef.value?.setCheckedKeys(savedPermissionIds)
     ElMessage.success('权限配置保存成功')
   }
   catch (error) {
@@ -262,6 +285,29 @@ function flattenPermissionNodes(nodes: RolePermissionTreeNode[]): Array<{ id: st
   })
 }
 
+function collectLeafPermissionIds(nodes: RolePermissionTreeNode[], keyword = ''): string[] {
+  return nodes.flatMap((node) => {
+    if (!node.children?.length) {
+      if (!keyword || node.name.includes(keyword) || node.id.includes(keyword)) {
+        return [node.id]
+      }
+
+      return []
+    }
+
+    return collectLeafPermissionIds(node.children, keyword)
+  })
+}
+
+function sortPermissionIdsByTreeOrder(permissionIds: string[]) {
+  const permissionIdSet = new Set(permissionIds)
+  const orderedPermissionIds = allLeafPermissionIds.value.filter(permissionId => permissionIdSet.has(permissionId))
+  const orderedPermissionIdSet = new Set(orderedPermissionIds)
+  const outOfTreePermissionIds = permissionIds.filter(permissionId => !orderedPermissionIdSet.has(permissionId))
+
+  return [...orderedPermissionIds, ...outOfTreePermissionIds]
+}
+
 function findNodePath(nodes: RolePermissionTreeNode[], targetId: string, path: RolePermissionTreeNode[] = []): RolePermissionTreeNode[] {
   for (const node of nodes) {
     const nextPath = [...path, node]
@@ -300,7 +346,7 @@ watch(roleId, () => {
   <PageContent
     eyebrow="Role Permission"
     title="权限配置"
-    :description="`围绕角色 “${roleName}” 配置菜单与权限点，先完成前端配置骨架与保存闭环。`"
+    :description="`围绕角色 “${roleName}” 配置菜单与权限点，使用真实后端数据完成授权闭环。`"
   >
     <template #actions>
       <el-button @click="handleBack">
@@ -548,14 +594,14 @@ watch(roleId, () => {
           <header class="role-permission__panel-header">
             <div>
               <strong>后续接入说明</strong>
-              <p>这版先完成交互闭环，后续可平滑切换真实接口。</p>
+              <p>当前页面已经接入真实角色权限接口，后续继续增强授权规则。</p>
             </div>
           </header>
 
           <ul class="role-permission__notes">
-            <li>后端接口接入后，当前页面只需要替换数据读取和保存方法。</li>
-            <li>如果后续补按钮权限或接口权限，可以继续复用当前树形结构。</li>
-            <li>菜单管理页完成后，这里可以进一步支持菜单树联动与批量勾选规则。</li>
+            <li>权限树以菜单层级为主，按钮和接口权限作为可授权叶子节点。</li>
+            <li>保存后以后端返回的最新权限集合刷新页面状态，避免旧数据残留。</li>
+            <li>后续可以继续补充权限变更审计、差异预览和批量授权能力。</li>
           </ul>
         </article>
       </aside>

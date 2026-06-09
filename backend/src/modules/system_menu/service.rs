@@ -220,6 +220,8 @@ pub async fn create_menu(
     .execute(&mut *tx)
     .await?;
 
+    sync_menu_permission(&mut tx, operator_user_id, &input).await?;
+
     tx.commit().await?;
 
     Ok(MenuMutationData {
@@ -244,6 +246,10 @@ pub async fn update_menu(
     ensure_parent_exists(&mut tx, input.parent_id).await?;
     ensure_parent_not_descendant(&mut tx, menu_id, input.parent_id).await?;
     ensure_unique_permission_code(&mut tx, input.permission_code.as_deref(), Some(menu_id)).await?;
+    if current_menu.permission_code != input.permission_code {
+        ensure_menu_permission_not_assigned(&mut tx, current_menu.permission_code.as_deref())
+            .await?;
+    }
 
     sqlx::query(
         r#"
@@ -287,6 +293,16 @@ pub async fn update_menu(
     .execute(&mut *tx)
     .await?;
 
+    if current_menu.permission_code != input.permission_code {
+        deactivate_menu_permission(
+            &mut tx,
+            operator_user_id,
+            current_menu.permission_code.as_deref(),
+        )
+        .await?;
+    }
+    sync_menu_permission(&mut tx, operator_user_id, &input).await?;
+
     tx.commit().await?;
 
     Ok(MenuMutationData {
@@ -324,6 +340,14 @@ pub async fn update_menu_status(
     .execute(&mut *tx)
     .await?;
 
+    sync_menu_permission_status(
+        &mut tx,
+        operator_user_id,
+        current_menu.permission_code.as_deref(),
+        status,
+    )
+    .await?;
+
     tx.commit().await?;
 
     Ok(MenuStatusMutationData {
@@ -359,6 +383,13 @@ pub async fn delete_menu(
     .bind(menu_id)
     .bind(operator_user_id)
     .execute(&mut *tx)
+    .await?;
+
+    deactivate_menu_permission(
+        &mut tx,
+        operator_user_id,
+        current_menu.permission_code.as_deref(),
+    )
     .await?;
 
     tx.commit().await?;
@@ -535,6 +566,134 @@ async fn next_menu_id(tx: &mut Transaction<'_, Postgres>) -> AppResult<i64> {
     .await?;
 
     Ok(row.next_id)
+}
+
+async fn next_permission_id(tx: &mut Transaction<'_, Postgres>) -> AppResult<i64> {
+    let row = sqlx::query_as::<_, NextIdRow>(
+        r#"
+        SELECT COALESCE(MAX(id), 10000) + 1 AS next_id
+        FROM sys_permission
+        "#,
+    )
+    .fetch_one(&mut **tx)
+    .await?;
+
+    Ok(row.next_id)
+}
+
+async fn sync_menu_permission(
+    tx: &mut Transaction<'_, Postgres>,
+    operator_user_id: i64,
+    input: &MenuInput,
+) -> AppResult<()> {
+    let Some(permission_code) = input.permission_code.as_deref() else {
+        return Ok(());
+    };
+    let Some(permission_type) = menu_type_to_permission_type(&input.menu_type) else {
+        return Ok(());
+    };
+
+    let permission_id = next_permission_id(tx).await?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO sys_permission (
+            id,
+            permission_name,
+            permission_code,
+            permission_type,
+            http_method,
+            api_path,
+            status,
+            created_at,
+            updated_at,
+            created_by,
+            updated_by,
+            is_deleted,
+            remark
+        ) VALUES (
+            $1, $2, $3, $4, NULL, NULL, $5, NOW(), NOW(), $6, $6, FALSE, $7
+        )
+        ON CONFLICT (permission_code) DO UPDATE SET
+            permission_name = EXCLUDED.permission_name,
+            permission_type = EXCLUDED.permission_type,
+            http_method = COALESCE(EXCLUDED.http_method, sys_permission.http_method),
+            api_path = COALESCE(EXCLUDED.api_path, sys_permission.api_path),
+            status = EXCLUDED.status,
+            updated_at = NOW(),
+            updated_by = EXCLUDED.updated_by,
+            is_deleted = FALSE,
+            remark = COALESCE(EXCLUDED.remark, sys_permission.remark)
+        "#,
+    )
+    .bind(permission_id)
+    .bind(&input.menu_name)
+    .bind(permission_code)
+    .bind(permission_type)
+    .bind(input.status)
+    .bind(operator_user_id)
+    .bind(&input.remark)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+async fn sync_menu_permission_status(
+    tx: &mut Transaction<'_, Postgres>,
+    operator_user_id: i64,
+    permission_code: Option<&str>,
+    status: i16,
+) -> AppResult<()> {
+    let Some(permission_code) = permission_code else {
+        return Ok(());
+    };
+
+    sqlx::query(
+        r#"
+        UPDATE sys_permission
+        SET status = $2,
+            updated_at = NOW(),
+            updated_by = $3
+        WHERE permission_code = $1
+          AND is_deleted = FALSE
+        "#,
+    )
+    .bind(permission_code)
+    .bind(status)
+    .bind(operator_user_id)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+async fn deactivate_menu_permission(
+    tx: &mut Transaction<'_, Postgres>,
+    operator_user_id: i64,
+    permission_code: Option<&str>,
+) -> AppResult<()> {
+    let Some(permission_code) = permission_code else {
+        return Ok(());
+    };
+
+    sqlx::query(
+        r#"
+        UPDATE sys_permission
+        SET status = 0,
+            is_deleted = TRUE,
+            updated_at = NOW(),
+            updated_by = $2
+        WHERE permission_code = $1
+          AND is_deleted = FALSE
+        "#,
+    )
+    .bind(permission_code)
+    .bind(operator_user_id)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
 }
 
 async fn ensure_parent_exists(tx: &mut Transaction<'_, Postgres>, parent_id: i64) -> AppResult<()> {
@@ -805,6 +964,15 @@ fn normalize_menu_type(value: impl AsRef<str>) -> AppResult<String> {
         _ => Err(AppError::bad_request(
             "menu_type must be one of catalog, menu, button, api",
         )),
+    }
+}
+
+fn menu_type_to_permission_type(menu_type: &str) -> Option<&'static str> {
+    match menu_type {
+        "menu" => Some("menu"),
+        "button" => Some("button"),
+        "api" => Some("api"),
+        _ => None,
     }
 }
 

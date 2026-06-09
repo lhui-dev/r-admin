@@ -22,17 +22,28 @@ const router = useRouter()
 const treeRef = ref<InstanceType<typeof ElTree>>()
 const loading = ref(false)
 const submitLoading = ref(false)
+const confirmDialogVisible = ref(false)
 const roleDetail = ref<RoleDetailData | null>(null)
 const permissionTree = ref<RolePermissionTreeNode[]>([])
 const checkedPermissionIds = ref<string[]>([])
 const initialCheckedPermissionIds = ref<string[]>([])
 const treeKeyword = ref('')
+const treeViewMode = ref<'all' | 'checked' | 'unchecked' | 'changed'>('all')
+const treeViewModeOptions = [
+  { label: '全部', value: 'all' },
+  { label: '仅看已选', value: 'checked' },
+  { label: '仅看未选', value: 'unchecked' },
+  { label: '仅看变更', value: 'changed' },
+] as const
 
 const roleId = computed(() => Number(route.params.roleId))
 const roleName = computed(() => roleDetail.value?.name ?? '角色权限配置')
 const checkedLeafIds = computed(() => checkedPermissionIds.value)
 const checkedLeafIdSet = computed(() => new Set(checkedLeafIds.value))
 const allLeafPermissionIds = computed(() => flattenPermissionNodes(permissionTree.value).map(node => node.id))
+const displayedPermissionTree = computed(() => {
+  return filterPermissionTree(permissionTree.value, treeKeyword.value.trim(), treeViewMode.value)
+})
 const selectedPermissionCount = computed(() => checkedLeafIds.value.length)
 const selectedModuleCount = computed(() => {
   const moduleIds = new Set<string>()
@@ -46,23 +57,72 @@ const selectedModuleCount = computed(() => {
 
   return moduleIds.size
 })
-const selectedPermissionLabels = computed(() => {
+const permissionLabelMap = computed(() => {
   const labels = new Map<string, string>()
 
   flattenPermissionNodes(permissionTree.value).forEach((node) => {
     labels.set(node.id, node.name)
   })
 
+  roleDetail.value?.permissions.forEach((permission) => {
+    if (!labels.has(permission.id)) {
+      labels.set(permission.id, permission.name)
+    }
+  })
+
+  return labels
+})
+const selectedPermissionLabels = computed(() => {
   return checkedLeafIds.value
     .map(permissionId => ({
       id: permissionId,
-      name: labels.get(permissionId) ?? permissionId,
+      name: permissionLabelMap.value.get(permissionId) ?? permissionId,
     }))
+})
+const addedPermissionLabels = computed(() => {
+  const initialPermissionIdSet = new Set(initialCheckedPermissionIds.value)
+
+  return checkedLeafIds.value
+    .filter(permissionId => !initialPermissionIdSet.has(permissionId))
+    .map(toPermissionPreviewItem)
+})
+const removedPermissionLabels = computed(() => {
+  const currentPermissionIdSet = new Set(checkedLeafIds.value)
+
+  return initialCheckedPermissionIds.value
+    .filter(permissionId => !currentPermissionIdSet.has(permissionId))
+    .map(toPermissionPreviewItem)
+})
+const permissionChangeSummaryText = computed(() => {
+  if (!hasPendingChanges.value) {
+    return '暂无权限变更，当前配置与最近一次保存结果一致。'
+  }
+
+  return `将新增 ${addedPermissionLabels.value.length} 个，移除 ${removedPermissionLabels.value.length} 个权限点。`
 })
 const hasPendingChanges = computed(() => {
   const current = [...checkedLeafIds.value].sort().join('|')
   const initial = [...initialCheckedPermissionIds.value].sort().join('|')
   return current !== initial
+})
+const changedPermissionIdSet = computed(() => {
+  const currentPermissionIdSet = new Set(checkedLeafIds.value)
+  const initialPermissionIdSet = new Set(initialCheckedPermissionIds.value)
+  const changedIds = new Set<string>()
+
+  checkedLeafIds.value.forEach((permissionId) => {
+    if (!initialPermissionIdSet.has(permissionId)) {
+      changedIds.add(permissionId)
+    }
+  })
+
+  initialCheckedPermissionIds.value.forEach((permissionId) => {
+    if (!currentPermissionIdSet.has(permissionId)) {
+      changedIds.add(permissionId)
+    }
+  })
+
+  return changedIds
 })
 const roleDataScopeLabel = computed(() => {
   const dataScope = roleDetail.value?.data_scope
@@ -141,19 +201,17 @@ async function loadPermissionConfig() {
   }
 }
 
-function handleTreeCheck() {
-  const keyword = treeKeyword.value.trim()
-  if (!keyword) {
-    checkedPermissionIds.value = normalizeCheckedLeafIds()
+function handleTreeCheck(data: TreeNodeData) {
+  const changedLeafIds = collectLeafPermissionIds([data as RolePermissionTreeNode])
+  if (!changedLeafIds.length) {
     return
   }
 
   const checkedKeys = (treeRef.value?.getCheckedKeys(false) ?? []).map(key => String(key))
   const checkedKeySet = new Set(checkedKeys)
-  const visibleLeafIds = collectLeafPermissionIds(permissionTree.value, keyword)
   const nextCheckedIds = new Set(checkedLeafIds.value)
 
-  visibleLeafIds.forEach((permissionId) => {
+  changedLeafIds.forEach((permissionId) => {
     if (checkedKeySet.has(permissionId)) {
       nextCheckedIds.add(permissionId)
       return
@@ -176,7 +234,16 @@ function handleResetChecked() {
 }
 
 async function handleSave() {
-  if (!hasPendingChanges.value) {
+  if (!hasPendingChanges.value || submitLoading.value) {
+    return
+  }
+
+  confirmDialogVisible.value = true
+}
+
+async function handleConfirmSave() {
+  if (!hasPendingChanges.value || submitLoading.value) {
+    confirmDialogVisible.value = false
     return
   }
 
@@ -194,6 +261,7 @@ async function handleSave() {
     initialCheckedPermissionIds.value = [...savedPermissionIds]
     await nextTick()
     treeRef.value?.setCheckedKeys(savedPermissionIds)
+    confirmDialogVisible.value = false
     ElMessage.success('权限配置保存成功')
   }
   catch (error) {
@@ -202,6 +270,14 @@ async function handleSave() {
   finally {
     submitLoading.value = false
   }
+}
+
+function handleCancelConfirmSave() {
+  if (submitLoading.value) {
+    return
+  }
+
+  confirmDialogVisible.value = false
 }
 
 function handleBack() {
@@ -222,16 +298,45 @@ function handleClearAll() {
   treeRef.value?.setCheckedKeys([])
 }
 
-function handleTreeFilter(value: string) {
-  treeRef.value?.filter(value.trim())
+function handleExpandAll() {
+  setTreeExpandedState(true)
 }
 
-function filterTreeNode(value: string, data: TreeNodeData) {
-  if (!value) {
-    return true
-  }
+function handleCollapseAll() {
+  setTreeExpandedState(false)
+}
 
-  return String((data as RolePermissionTreeNode).name).includes(value)
+function handleTreeFilter(value: string) {
+  treeKeyword.value = value
+  refreshTreeCheckedState()
+}
+
+function handleTreeViewModeChange() {
+  refreshTreeCheckedState()
+}
+
+function refreshTreeCheckedState() {
+  void nextTick(() => {
+    treeRef.value?.setCheckedKeys(checkedLeafIds.value)
+  })
+}
+
+function setTreeExpandedState(expanded: boolean) {
+  const treeStore = treeRef.value?.store as {
+    nodesMap?: Record<string, {
+      expand?: (callback?: (() => void) | null, expandParent?: boolean) => void
+      collapse?: () => void
+    }>
+  } | undefined
+
+  Object.values(treeStore?.nodesMap ?? {}).forEach((node) => {
+    if (expanded) {
+      node.expand?.()
+      return
+    }
+
+    node.collapse?.()
+  })
 }
 
 function isCheckedLeafNode(node: RolePermissionTreeNode) {
@@ -261,18 +366,55 @@ function resolveDataScopeLabel(value: string) {
   return map[value] ?? value
 }
 
-function normalizeCheckedLeafIds() {
-  const checkedKeys = (treeRef.value?.getCheckedKeys(false) ?? []) as string[]
-  const checkedLeafSet = new Set<string>()
-  const leafIds = new Set(flattenPermissionNodes(permissionTree.value).map(node => node.id))
+function nodeMatchesKeywordSelf(node: RolePermissionTreeNode, keyword: string) {
+  return !keyword || node.name.includes(keyword) || node.id.includes(keyword)
+}
 
-  checkedKeys.forEach((key) => {
-    if (leafIds.has(key)) {
-      checkedLeafSet.add(key)
+function leafMatchesViewMode(permissionId: string, mode: typeof treeViewMode.value) {
+  if (mode === 'all') {
+    return true
+  }
+
+  if (mode === 'checked') {
+    return checkedLeafIdSet.value.has(permissionId)
+  }
+
+  if (mode === 'changed') {
+    return changedPermissionIdSet.value.has(permissionId)
+  }
+
+  return !checkedLeafIdSet.value.has(permissionId)
+}
+
+function filterPermissionTree(
+  nodes: RolePermissionTreeNode[],
+  keyword: string,
+  mode: typeof treeViewMode.value,
+): RolePermissionTreeNode[] {
+  return nodes.flatMap((node) => {
+    if (!node.children?.length) {
+      if (nodeMatchesKeywordSelf(node, keyword) && leafMatchesViewMode(node.id, mode)) {
+        return [{ ...node, children: [] }]
+      }
+
+      return []
     }
-  })
 
-  return [...checkedLeafSet]
+    const nextKeyword = nodeMatchesKeywordSelf(node, keyword) ? '' : keyword
+    const children = filterPermissionTree(node.children, nextKeyword, mode)
+    if (!children.length) {
+      return []
+    }
+
+    return [{ ...node, children }]
+  })
+}
+
+function toPermissionPreviewItem(permissionId: string) {
+  return {
+    id: permissionId,
+    name: permissionLabelMap.value.get(permissionId) ?? permissionId,
+  }
 }
 
 function flattenPermissionNodes(nodes: RolePermissionTreeNode[]): Array<{ id: string, name: string }> {
@@ -442,7 +584,37 @@ watch(roleId, () => {
             @input="handleTreeFilter"
           />
 
+          <el-radio-group
+            v-model="treeViewMode"
+            class="role-permission__tree-view-mode"
+            size="small"
+            @change="handleTreeViewModeChange"
+          >
+            <el-radio-button
+              v-for="option in treeViewModeOptions"
+              :key="option.value"
+              :label="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </el-radio-button>
+          </el-radio-group>
+
           <div class="role-permission__tree-actions">
+            <el-button
+              text
+              :disabled="loading || !displayedPermissionTree.length"
+              @click="handleExpandAll"
+            >
+              一键展开
+            </el-button>
+            <el-button
+              text
+              :disabled="loading || !displayedPermissionTree.length"
+              @click="handleCollapseAll"
+            >
+              一键折叠
+            </el-button>
             <el-button
               text
               :disabled="loading || isAllLeafPermissionsSelected || !allLeafPermissionIds.length"
@@ -466,9 +638,9 @@ watch(roleId, () => {
             node-key="id"
             show-checkbox
             default-expand-all
-            :data="permissionTree"
+            :data="displayedPermissionTree"
+            empty-text="暂无匹配权限"
             :props="{ label: 'name', children: 'children' }"
-            :filter-node-method="filterTreeNode"
             @check="handleTreeCheck"
           >
             <template #default="{ data }">
@@ -593,6 +765,74 @@ watch(roleId, () => {
         <article class="role-permission__summary-card role-permission__panel">
           <header class="role-permission__panel-header">
             <div>
+              <strong>变更预览</strong>
+              <p>保存前确认本次授权会新增或移除哪些权限点。</p>
+            </div>
+            <el-tag
+              round
+              size="small"
+              :type="hasPendingChanges ? 'warning' : 'success'"
+            >
+              {{ hasPendingChanges ? '待确认' : '无变更' }}
+            </el-tag>
+          </header>
+
+          <div class="role-permission__diff-preview">
+            <p class="role-permission__diff-summary">
+              {{ permissionChangeSummaryText }}
+            </p>
+
+            <div class="role-permission__diff-grid">
+              <section class="role-permission__diff-column role-permission__diff-column--add">
+                <div class="role-permission__diff-heading">
+                  <span>将新增</span>
+                  <strong>{{ addedPermissionLabels.length }}</strong>
+                </div>
+                <div class="role-permission__diff-tags">
+                  <template v-if="addedPermissionLabels.length">
+                    <el-tag
+                      v-for="item in addedPermissionLabels"
+                      :key="item.id"
+                      round
+                      type="success"
+                    >
+                      {{ item.name }}
+                    </el-tag>
+                  </template>
+                  <p v-else>
+                    没有新增权限。
+                  </p>
+                </div>
+              </section>
+
+              <section class="role-permission__diff-column role-permission__diff-column--remove">
+                <div class="role-permission__diff-heading">
+                  <span>将移除</span>
+                  <strong>{{ removedPermissionLabels.length }}</strong>
+                </div>
+                <div class="role-permission__diff-tags">
+                  <template v-if="removedPermissionLabels.length">
+                    <el-tag
+                      v-for="item in removedPermissionLabels"
+                      :key="item.id"
+                      round
+                      type="danger"
+                    >
+                      {{ item.name }}
+                    </el-tag>
+                  </template>
+                  <p v-else>
+                    没有移除权限。
+                  </p>
+                </div>
+              </section>
+            </div>
+          </div>
+        </article>
+
+        <article class="role-permission__summary-card role-permission__panel">
+          <header class="role-permission__panel-header">
+            <div>
               <strong>后续接入说明</strong>
               <p>当前页面已经接入真实角色权限接口，后续继续增强授权规则。</p>
             </div>
@@ -606,6 +846,91 @@ watch(roleId, () => {
         </article>
       </aside>
     </section>
+
+    <el-dialog
+      v-model="confirmDialogVisible"
+      width="640px"
+      class="role-permission__confirm-dialog"
+      title="确认保存权限配置"
+      :close-on-click-modal="!submitLoading"
+      :close-on-press-escape="!submitLoading"
+      :show-close="!submitLoading"
+      @close="handleCancelConfirmSave"
+    >
+      <div class="role-permission__confirm">
+        <div class="role-permission__confirm-alert">
+          <strong>{{ roleName }}</strong>
+          <p>{{ permissionChangeSummaryText }}</p>
+        </div>
+
+        <div class="role-permission__confirm-grid">
+          <section class="role-permission__confirm-column role-permission__confirm-column--add">
+            <div class="role-permission__confirm-heading">
+              <span>新增权限</span>
+              <strong>{{ addedPermissionLabels.length }}</strong>
+            </div>
+            <div class="role-permission__confirm-tags">
+              <template v-if="addedPermissionLabels.length">
+                <el-tag
+                  v-for="item in addedPermissionLabels"
+                  :key="item.id"
+                  round
+                  type="success"
+                >
+                  {{ item.name }}
+                </el-tag>
+              </template>
+              <p v-else>
+                本次不会新增权限。
+              </p>
+            </div>
+          </section>
+
+          <section class="role-permission__confirm-column role-permission__confirm-column--remove">
+            <div class="role-permission__confirm-heading">
+              <span>移除权限</span>
+              <strong>{{ removedPermissionLabels.length }}</strong>
+            </div>
+            <div class="role-permission__confirm-tags">
+              <template v-if="removedPermissionLabels.length">
+                <el-tag
+                  v-for="item in removedPermissionLabels"
+                  :key="item.id"
+                  round
+                  type="danger"
+                >
+                  {{ item.name }}
+                </el-tag>
+              </template>
+              <p v-else>
+                本次不会移除权限。
+              </p>
+            </div>
+          </section>
+        </div>
+
+        <p class="role-permission__confirm-note">
+          保存后将以后端返回的最新权限集刷新页面状态，请确认这些变更符合当前角色职责。
+        </p>
+      </div>
+
+      <template #footer>
+        <el-button
+          :disabled="submitLoading"
+          @click="handleCancelConfirmSave"
+        >
+          继续调整
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="submitLoading"
+          :disabled="!hasPendingChanges"
+          @click="handleConfirmSave"
+        >
+          确认保存
+        </el-button>
+      </template>
+    </el-dialog>
   </PageContent>
 </template>
 
@@ -728,6 +1053,10 @@ watch(roleId, () => {
 
 .role-permission__tree-search {
   width: 100%;
+}
+
+.role-permission__tree-view-mode {
+  justify-self: start;
 }
 
 .role-permission__tree-actions {
@@ -911,6 +1240,166 @@ watch(roleId, () => {
   font-size: 13px;
 }
 
+.role-permission__diff-preview {
+  display: grid;
+  gap: 14px;
+}
+
+.role-permission__diff-summary {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--app-surface-soft);
+  color: var(--app-text-soft);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.role-permission__diff-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.role-permission__diff-column {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  background: var(--app-surface-soft);
+}
+
+.role-permission__diff-column--add {
+  background: color-mix(in srgb, var(--app-success) 7%, white);
+}
+
+.role-permission__diff-column--remove {
+  background: color-mix(in srgb, var(--app-danger) 6%, white);
+}
+
+.role-permission__diff-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.role-permission__diff-heading span {
+  color: var(--app-text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.role-permission__diff-heading strong {
+  color: #111827;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.role-permission__diff-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.role-permission__diff-tags p {
+  margin: 0;
+  color: var(--app-text-soft);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.role-permission__confirm {
+  display: grid;
+  gap: 16px;
+}
+
+.role-permission__confirm-alert {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--app-primary) 7%, white);
+}
+
+.role-permission__confirm-alert strong {
+  color: #111827;
+  font-size: 15px;
+}
+
+.role-permission__confirm-alert p {
+  margin: 0;
+  color: var(--app-text-soft);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.role-permission__confirm-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.role-permission__confirm-column {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 16px;
+  background: var(--app-surface-soft);
+}
+
+.role-permission__confirm-column--add {
+  background: color-mix(in srgb, var(--app-success) 7%, white);
+}
+
+.role-permission__confirm-column--remove {
+  background: color-mix(in srgb, var(--app-danger) 6%, white);
+}
+
+.role-permission__confirm-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.role-permission__confirm-heading span {
+  color: var(--app-text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.role-permission__confirm-heading strong {
+  color: #111827;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.role-permission__confirm-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.role-permission__confirm-tags p,
+.role-permission__confirm-note {
+  margin: 0;
+  color: var(--app-text-soft);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.role-permission__confirm-note {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
 .role-permission__notes {
   display: grid;
   gap: 10px;
@@ -950,6 +1439,8 @@ watch(roleId, () => {
 
 @media (max-width: 900px) {
   .role-permission__overview,
+  .role-permission__confirm-grid,
+  .role-permission__diff-grid,
   .role-permission__selected-stats {
     grid-template-columns: 1fr;
   }

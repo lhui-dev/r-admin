@@ -6,8 +6,8 @@ use axum::{
 use crate::{
     modules::{
         auth::handler as auth_handler, health::handler as health_handler,
-        system_menu::handler as system_menu_handler, system_role::handler as system_role_handler,
-        system_user::handler as system_user_handler,
+        system_dept::handler as system_dept_handler, system_menu::handler as system_menu_handler,
+        system_role::handler as system_role_handler, system_user::handler as system_user_handler,
     },
     state::AppState,
 };
@@ -66,6 +66,18 @@ pub fn build_router(state: AppState) -> Router {
         .route(
             "/api/system/menus/{id}/status",
             patch(system_menu_handler::update_status),
+        )
+        .route("/api/system/depts/tree", get(system_dept_handler::tree))
+        .route("/api/system/depts", post(system_dept_handler::create))
+        .route(
+            "/api/system/depts/{id}",
+            get(system_dept_handler::detail)
+                .patch(system_dept_handler::update)
+                .delete(system_dept_handler::delete),
+        )
+        .route(
+            "/api/system/depts/{id}/status",
+            patch(system_dept_handler::update_status),
         )
         .with_state(state)
 }

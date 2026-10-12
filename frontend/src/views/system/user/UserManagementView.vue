@@ -14,8 +14,7 @@ import {
   type FormInstance,
   type FormRules,
 } from 'element-plus'
-import { computed, onMounted, reactive, ref } from 'vue'
-
+import {computed, onMounted, reactive, ref} from 'vue'
 import BaseTable from '@/base-ui/base-table/BaseTable.vue'
 import PageContent from '@/base-ui/page-content/PageContent.vue'
 import PageModal from '@/base-ui/page-modal/PageModal.vue'
@@ -34,7 +33,7 @@ import {
   type UserListItem,
 } from '@/api/system-user'
 import { fetchSystemRoles, type RoleListItem as SystemRoleListItem } from '@/api/system-role'
-
+import { fetchSystemPosts, type PostListItem as SystemPostListItem } from '@/api/system-post'
 type UserFormModel = {
   username: string
   password: string
@@ -45,25 +44,23 @@ type UserFormModel = {
   gender?: number
   deptId?: number
   roleIds: number[]
+  postIds: number[]
   status: number
   remark: string
 }
-
 const deptOptions = [
-  { label: '平台总部', value: 100 },
-  { label: '技术中心', value: 110 },
-  { label: '运营中心', value: 120 },
+  {label: '平台总部', value: 100},
+  {label: '技术中心', value: 110},
+  {label: '运营中心', value: 120},
 ]
-
 const genderOptions = [
-  { label: '未知', value: 0 },
-  { label: '男', value: 1 },
-  { label: '女', value: 2 },
+  {label: '未知', value: 0},
+  {label: '男', value: 1},
+  {label: '女', value: 2},
 ]
-
 const statusOptions = [
-  { label: '启用', value: 1 },
-  { label: '禁用', value: 0 },
+  {label: '启用', value: 1},
+  {label: '禁用', value: 0},
 ]
 
 const filters = reactive({
@@ -81,6 +78,7 @@ const pagination = reactive({
 const userList = ref<UserListItem[]>([])
 const loading = ref(false)
 const roleOptions = ref<SystemRoleListItem[]>([])
+const postOptions = ref<SystemPostListItem[]>([])
 const roleOptionsLoading = ref(false)
 const detailVisible = ref(false)
 const detailLoading = ref(false)
@@ -90,6 +88,7 @@ const modalLoading = ref(false)
 const submitLoading = ref(false)
 const roleAssignVisible = ref(false)
 const roleAssignLoading = ref(false)
+const postOptionsLoading = ref(false)
 const roleAssignSubmitLoading = ref(false)
 const modalMode = ref<'create' | 'edit'>('create')
 const editingUserId = ref<number | null>(null)
@@ -101,13 +100,13 @@ const assignRoleIds = ref<number[]>([])
 
 const formRules: FormRules<UserFormModel> = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
+    {required: true, message: '请输入用户名', trigger: 'blur'},
   ],
   password: [
-    { required: true, message: '请输入初始密码', trigger: 'blur' },
+    {required: true, message: '请输入初始密码', trigger: 'blur'},
   ],
   nickname: [
-    { required: true, message: '请输入用户昵称', trigger: 'blur' },
+    {required: true, message: '请输入用户昵称', trigger: 'blur'},
   ],
 }
 
@@ -137,6 +136,7 @@ function createDefaultForm(): UserFormModel {
     gender: 1,
     deptId: 110,
     roleIds: [],
+    postIds: [],
     status: 1,
     remark: '',
   }
@@ -158,12 +158,27 @@ async function loadRoleOptions() {
     })
 
     roleOptions.value = response.data.items
-  }
-  catch (error) {
+  } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '角色选项加载失败'))
-  }
-  finally {
+  } finally {
     roleOptionsLoading.value = false
+  }
+}
+
+async function loadPostOptions() {
+  postOptionsLoading.value = true
+
+  try {
+    const response = await fetchSystemPosts({
+      page: 1,
+      page_size: 100,
+    })
+
+    postOptions.value = response.data.items
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '岗位选项加载失败'))
+  } finally {
+    postOptionsLoading.value = false
   }
 }
 
@@ -181,11 +196,9 @@ async function loadUsers() {
 
     userList.value = response.data.items
     pagination.total = response.data.pagination.total
-  }
-  catch (error) {
+  } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '用户列表加载失败'))
-  }
-  finally {
+  } finally {
     loading.value = false
   }
 }
@@ -221,11 +234,9 @@ async function handleView(userId: number) {
   try {
     const response = await fetchSystemUserDetail(userId)
     currentDetail.value = response.data
-  }
-  catch (error) {
+  } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '用户详情加载失败'))
-  }
-  finally {
+  } finally {
     detailLoading.value = false
   }
 }
@@ -234,6 +245,7 @@ function handleCreate() {
   modalMode.value = 'create'
   resetForm()
   void loadRoleOptions()
+  void loadPostOptions()
   modalVisible.value = true
 }
 
@@ -248,6 +260,7 @@ async function handleEdit(userId: number) {
   modalVisible.value = true
   modalLoading.value = true
   void loadRoleOptions()
+  void loadPostOptions()
 
   try {
     const response = await fetchSystemUserDetail(userId)
@@ -261,13 +274,12 @@ async function handleEdit(userId: number) {
     form.gender = detail.gender ?? 1
     form.deptId = detail.dept?.id
     form.roleIds = detail.roles.map(role => role.id)
+    form.postIds = detail.posts.map(post => post.id)
     form.remark = detail.remark ?? ''
-  }
-  catch (error) {
+  } catch (error) {
     modalVisible.value = false
     ElMessage.error(resolveErrorMessage(error, '用户详情加载失败'))
-  }
-  finally {
+  } finally {
     modalLoading.value = false
   }
 }
@@ -290,12 +302,10 @@ async function handleAssignRoles(userId: number) {
       nickname: detail.nickname,
     }
     assignRoleIds.value = detail.roles.map(role => role.id)
-  }
-  catch (error) {
+  } catch (error) {
     roleAssignVisible.value = false
     ElMessage.error(resolveErrorMessage(error, '角色信息加载失败'))
-  }
-  finally {
+  } finally {
     roleAssignLoading.value = false
   }
 }
@@ -321,6 +331,7 @@ async function handleSubmit() {
         dept_id: form.deptId,
         status: form.status,
         role_ids: [...form.roleIds],
+        post_ids: [...form.postIds],
         remark: optionalText(form.remark),
       }
 
@@ -328,8 +339,7 @@ async function handleSubmit() {
       filters.keyword = payload.username
       pagination.page = 1
       ElMessage.success('用户创建成功')
-    }
-    else if (editingUserId.value) {
+    } else if (editingUserId.value) {
       const payload: UpdateUserPayload = {
         nickname: optionalText(form.nickname),
         real_name: optionalText(form.realName),
@@ -338,6 +348,7 @@ async function handleSubmit() {
         gender: form.gender,
         dept_id: form.deptId,
         role_ids: [...form.roleIds],
+        post_ids: [...form.postIds],
         remark: optionalText(form.remark),
       }
 
@@ -347,11 +358,9 @@ async function handleSubmit() {
 
     modalVisible.value = false
     await loadUsers()
-  }
-  catch (error) {
+  } catch (error) {
     ElMessage.error(resolveErrorMessage(error, isCreateMode.value ? '用户创建失败' : '用户更新失败'))
-  }
-  finally {
+  } finally {
     submitLoading.value = false
   }
 }
@@ -378,11 +387,9 @@ async function handleSubmitAssignedRoles() {
       const response = await fetchSystemUserDetail(targetUserId)
       currentDetail.value = response.data
     }
-  }
-  catch (error) {
+  } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '角色分配失败'))
-  }
-  finally {
+  } finally {
     roleAssignSubmitLoading.value = false
   }
 }
@@ -405,8 +412,7 @@ async function handleToggleStatus(row: UserListItem) {
     await updateSystemUserStatus(row.id, nextStatus)
     ElMessage.success(`用户已${actionText}`)
     await loadUsers()
-  }
-  catch (error) {
+  } catch (error) {
     if (error === 'cancel' || error === 'close') {
       return
     }
@@ -462,6 +468,9 @@ function formatRoleOptionLabel(role: SystemRoleListItem) {
   return `${role.name} (${role.code})`
 }
 
+function formatPostOptionLabel(post: SystemPostListItem) {
+  return `${post.name} (${post.code})`
+}
 function formatPostNames(posts: Array<{ name: string }>) {
   if (!posts.length) {
     return '未分配'
@@ -484,6 +493,7 @@ function resolveErrorMessage(error: unknown, fallback: string) {
 onMounted(() => {
   void loadUsers()
   void loadRoleOptions()
+  void loadPostOptions()
 })
 </script>
 
@@ -498,11 +508,15 @@ onMounted(() => {
         type="primary"
         @click="handleCreate"
       >
-        <el-icon><Plus /></el-icon>
+        <el-icon>
+          <Plus/>
+        </el-icon>
         <span>新增用户</span>
       </el-button>
       <el-button @click="loadUsers">
-        <el-icon><RefreshRight /></el-icon>
+        <el-icon>
+          <RefreshRight/>
+        </el-icon>
         <span>刷新列表</span>
       </el-button>
     </template>
@@ -619,7 +633,9 @@ onMounted(() => {
               type="primary"
               @click="handleSearch"
             >
-              <el-icon><Search /></el-icon>
+              <el-icon>
+                <Search/>
+              </el-icon>
               <span>查询</span>
             </el-button>
           </div>
@@ -638,13 +654,19 @@ onMounted(() => {
         <div class="user-management__table-toolbar">
           <div class="user-management__table-meta">
             <strong>用户列表</strong>
-            <span>{{ hasActiveFilters ? '当前结果已应用筛选条件，适合直接进行目标维护。' : '第一版先承接最常用的查、增、改、启停链路。' }}</span>
+            <span>{{
+                hasActiveFilters ? '当前结果已应用筛选条件，适合直接进行目标维护。' : '第一版先承接最常用的查、增、改、启停链路。'
+              }}</span>
           </div>
 
           <div class="user-management__table-pills">
             <span class="user-management__table-pill">第 {{ pagination.page }} / {{ pageCount }} 页</span>
-            <span class="user-management__table-pill user-management__table-pill--success">启用 {{ enabledCount }}</span>
-            <span class="user-management__table-pill user-management__table-pill--danger">禁用 {{ disabledCount }}</span>
+            <span class="user-management__table-pill user-management__table-pill--success">启用 {{
+                enabledCount
+              }}</span>
+            <span class="user-management__table-pill user-management__table-pill--danger">禁用 {{
+                disabledCount
+              }}</span>
           </div>
         </div>
       </template>
@@ -728,7 +750,9 @@ onMounted(() => {
               type="primary"
               @click="handleView(row.id)"
             >
-              <el-icon><View /></el-icon>
+              <el-icon>
+                <View/>
+              </el-icon>
               <span>详情</span>
             </el-button>
             <el-button
@@ -736,7 +760,9 @@ onMounted(() => {
               type="primary"
               @click="handleEdit(row.id)"
             >
-              <el-icon><EditPen /></el-icon>
+              <el-icon>
+                <EditPen/>
+              </el-icon>
               <span>编辑</span>
             </el-button>
             <el-button
@@ -744,7 +770,9 @@ onMounted(() => {
               type="primary"
               @click="handleAssignRoles(row.id)"
             >
-              <el-icon><UserFilled /></el-icon>
+              <el-icon>
+                <UserFilled/>
+              </el-icon>
               <span>分配角色</span>
             </el-button>
             <el-button
@@ -752,7 +780,9 @@ onMounted(() => {
               :type="row.status === 1 ? 'danger' : 'success'"
               @click="handleToggleStatus(row)"
             >
-              <el-icon><CircleCheck /></el-icon>
+              <el-icon>
+                <CircleCheck/>
+              </el-icon>
               <span>{{ row.status === 1 ? '停用' : '启用' }}</span>
             </el-button>
           </template>
@@ -1004,6 +1034,28 @@ onMounted(() => {
                     :label="formatRoleOptionLabel(role)"
                     :value="role.id"
                     :disabled="role.status !== 1"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item
+                label="岗位"
+                class="user-management__form-span-2"
+              >
+                <el-select
+                  v-model="form.postIds"
+                  multiple
+                  collapse-tags
+                  collapse-tags-tooltip
+                  placeholder="请选择岗位"
+                  :loading="postOptionsLoading"
+                >
+                  <el-option
+                    v-for="post in postOptions"
+                    :key="post.id"
+                    :label="formatPostOptionLabel(post)"
+                    :value="post.id"
+                    :disabled="post.status !== 1"
                   />
                 </el-select>
               </el-form-item>

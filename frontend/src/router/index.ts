@@ -4,7 +4,6 @@ import {
   type RouteRecordRaw,
   type RouterHistory,
 } from 'vue-router'
-
 import { pinia } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { useMenuStore } from '@/stores/menu'
@@ -21,17 +20,16 @@ import ConstructionView from '@/views/placeholder/ConstructionView.vue'
 import ProfileView from '@/views/profile/ProfileView.vue'
 import DeptManagementView from '@/views/system/dept/DeptManagementView.vue'
 import MenuManagementView from '@/views/system/menu/MenuManagementView.vue'
+import PostManagementView from '@/views/system/post/PostManagementView.vue'
 import RolePermissionConfigView from '@/views/system/role/RolePermissionConfigView.vue'
 import RoleManagementView from '@/views/system/role/RoleManagementView.vue'
 import SystemView from '@/views/system/SystemView.vue'
 import UserManagementView from '@/views/system/user/UserManagementView.vue'
-
 const legacyPlaceholderRedirectRoutes: RouteRecordRaw[] = Object.entries(LEGACY_MENU_ROUTE_MAP)
   .map(([legacyPath, realPath]) => ({
     path: legacyPath.replace(/^\//, ''),
     redirect: realPath,
   }))
-
 export const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -82,10 +80,7 @@ export const routes: RouteRecordRaw[] = [
       {
         path: 'system/post',
         name: 'system-post',
-        component: ConstructionView,
-        meta: {
-          featureKey: 'posts',
-        },
+        component: PostManagementView,
       },
       {
         path: 'system/dict',
@@ -146,13 +141,11 @@ export const routes: RouteRecordRaw[] = [
     component: NotFoundView,
   },
 ]
-
 export function createAppRouter(history: RouterHistory = createWebHistory()) {
   const router = createRouter({
     history,
     routes,
   })
-
   router.beforeEach(async (to) => {
     const authStore = useAuthStore(pinia)
     const menuStore = useMenuStore(pinia)
@@ -226,7 +219,6 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
 const router = createAppRouter()
 
 export default router
-
 async function ensureMenusReady(
   authStore: ReturnType<typeof useAuthStore>,
   menuStore: ReturnType<typeof useMenuStore>,

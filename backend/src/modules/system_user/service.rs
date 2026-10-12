@@ -69,6 +69,11 @@ struct UserPostRow {
 }
 
 #[derive(Debug, Clone, FromRow)]
+struct UserPostTargetRow {
+    id: i64,
+}
+
+#[derive(Debug, Clone, FromRow)]
 struct CountRow {
     total: i64,
 }
@@ -268,6 +273,7 @@ pub async fn create_user(
     let remark = normalize_optional_field(payload.remark, "remark")?;
     let status = validate_status(payload.status.unwrap_or(1))?;
     let role_ids = normalize_role_ids(payload.role_ids.unwrap_or_default())?;
+    let post_ids = normalize_post_ids(payload.post_ids.unwrap_or_default())?;
 
     let mut tx = state.db.begin().await?;
 
@@ -282,6 +288,8 @@ pub async fn create_user(
     ensure_dept_exists(&mut tx, payload.dept_id).await?;
     let role_targets = find_assignable_roles_by_ids(&mut tx, &role_ids).await?;
     ensure_requested_roles_exist(&role_ids, &role_targets)?;
+    let post_targets = find_assignable_posts_by_ids(&mut tx, &post_ids).await?;
+    ensure_requested_posts_exist(&post_ids, &post_targets)?;
 
     let new_user_id = next_user_id(&mut tx).await?;
     let password_hash = password::hash_password(&password_text)?;
@@ -328,6 +336,7 @@ pub async fn create_user(
     .await?;
 
     replace_user_roles(&mut tx, new_user_id, &role_targets, operator_user_id).await?;
+    replace_user_posts(&mut tx, new_user_id, &post_targets, operator_user_id).await?;
 
     tx.commit().await?;
 
@@ -336,7 +345,6 @@ pub async fn create_user(
         username,
     })
 }
-
 pub async fn update_user(
     state: &AppState,
     operator_user_id: i64,
@@ -354,6 +362,7 @@ pub async fn update_user(
     let email = normalize_optional_field(payload.email, "email")?;
     let remark = normalize_optional_field(payload.remark, "remark")?;
     let role_ids = payload.role_ids.map(normalize_role_ids).transpose()?;
+    let post_ids = payload.post_ids.map(normalize_post_ids).transpose()?;
 
     if nickname.is_none()
         && real_name.is_none()
@@ -362,6 +371,7 @@ pub async fn update_user(
         && payload.gender.is_none()
         && payload.dept_id.is_none()
         && role_ids.is_none()
+        && post_ids.is_none()
         && remark.is_none()
     {
         return Err(AppError::bad_request(
@@ -383,6 +393,14 @@ pub async fn update_user(
         ensure_requested_roles_exist(role_ids, &role_targets)?;
         ensure_super_admin_role_integrity(&current_user, &role_targets)?;
         Some(role_targets)
+    } else {
+        None
+    };
+
+    let post_targets = if let Some(post_ids) = post_ids.as_ref() {
+        let post_targets = find_assignable_posts_by_ids(&mut tx, post_ids).await?;
+        ensure_requested_posts_exist(post_ids, &post_targets)?;
+        Some(post_targets)
     } else {
         None
     };
@@ -419,6 +437,10 @@ pub async fn update_user(
         replace_user_roles(&mut tx, user_id, role_targets, operator_user_id).await?;
     }
 
+    if let Some(post_targets) = post_targets.as_ref() {
+        replace_user_posts(&mut tx, user_id, post_targets, operator_user_id).await?;
+    }
+
     tx.commit().await?;
 
     Ok(UserMutationData {
@@ -426,7 +448,6 @@ pub async fn update_user(
         username: current_user.username,
     })
 }
-
 pub async fn update_user_status(
     state: &AppState,
     operator_user_id: i64,
@@ -706,6 +727,137 @@ async fn replace_user_roles(
     Ok(())
 }
 
+async fn find_assignable_posts_by_ids(
+    tx: &mut Transaction<'_, Postgres>,
+    post_ids: &[i64],
+) -> AppResult<Vec<UserPostTargetRow>> {
+    if post_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    sqlx::query_as::<_, UserPostTargetRow>(
+        r#"
+        SELECT
+            id
+        FROM sys_post
+        WHERE id = ANY($1)
+          AND is_deleted = FALSE
+          AND status = 1
+        ORDER BY sort_no, id
+        "#,
+    )
+    .bind(post_ids)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(Into::into)
+}
+
+async fn replace_user_posts(
+    tx: &mut Transaction<'_, Postgres>,
+    user_id: i64,
+    post_targets: &[UserPostTargetRow],
+    operator_user_id: i64,
+) -> AppResult<()> {
+    sqlx::query(
+        r#"
+        DELETE FROM sys_user_post
+        WHERE user_id = $1
+        "#,
+    )
+    .bind(user_id)
+    .execute(&mut **tx)
+    .await?;
+
+    if post_targets.is_empty() {
+        return Ok(());
+    }
+
+    let mut next_id = next_user_post_id(tx).await?;
+    for post in post_targets {
+        sqlx::query(
+            r#"
+            INSERT INTO sys_user_post (
+                id,
+                user_id,
+                post_id,
+                created_at,
+                created_by
+            ) VALUES ($1, $2, $3, NOW(), $4)
+            "#,
+        )
+        .bind(next_id)
+        .bind(user_id)
+        .bind(post.id)
+        .bind(operator_user_id)
+        .execute(&mut **tx)
+        .await?;
+
+        next_id += 10;
+    }
+
+    Ok(())
+}
+
+fn ensure_requested_posts_exist(
+    requested_post_ids: &[i64],
+    post_targets: &[UserPostTargetRow],
+) -> AppResult<()> {
+    if requested_post_ids.len() == post_targets.len() {
+        return Ok(());
+    }
+
+    let existing_ids = post_targets
+        .iter()
+        .map(|post| post.id)
+        .collect::<std::collections::BTreeSet<_>>();
+    let invalid_ids = requested_post_ids
+        .iter()
+        .filter(|post_id| !existing_ids.contains(post_id))
+        .map(|post_id| post_id.to_string())
+        .collect::<Vec<_>>();
+
+    Err(AppError::conflict(format!(
+        "post_id does not exist or is disabled: {}",
+        invalid_ids.join(", ")
+    )))
+}
+
+async fn next_user_post_id(tx: &mut Transaction<'_, Postgres>) -> AppResult<i64> {
+    #[derive(Debug, FromRow)]
+    struct NextIdRow {
+        next_id: i64,
+    }
+
+    let row = sqlx::query_as::<_, NextIdRow>(
+        r#"
+        SELECT COALESCE(MAX(id), 50000) + 10 AS next_id
+        FROM sys_user_post
+        "#,
+    )
+    .fetch_one(&mut **tx)
+    .await?;
+
+    Ok(row.next_id)
+}
+
+fn normalize_post_ids(post_ids: Vec<i64>) -> AppResult<Vec<i64>> {
+    let mut normalized = Vec::new();
+    let mut seen = std::collections::BTreeSet::new();
+
+    for post_id in post_ids {
+        if post_id <= 0 {
+            return Err(AppError::bad_request(
+                "post_ids must contain positive integers",
+            ));
+        }
+
+        if seen.insert(post_id) {
+            normalized.push(post_id);
+        }
+    }
+
+    Ok(normalized)
+}
 fn ensure_requested_roles_exist(
     requested_role_ids: &[i64],
     role_targets: &[RoleTargetRow],

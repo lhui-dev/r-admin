@@ -89,6 +89,7 @@ export interface CreateUserPayload {
   dept_id?: number
   status?: number
   role_ids?: number[]
+  post_ids?: number[]
   remark?: string
 }
 
@@ -100,6 +101,7 @@ export interface UpdateUserPayload {
   gender?: number
   dept_id?: number
   role_ids?: number[]
+  post_ids?: number[]
   remark?: string
 }
 

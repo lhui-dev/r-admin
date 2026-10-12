@@ -94,6 +94,7 @@ pub struct CreateUserRequest {
     pub dept_id: Option<i64>,
     pub status: Option<i16>,
     pub role_ids: Option<Vec<i64>>,
+    pub post_ids: Option<Vec<i64>>,
     pub remark: Option<String>,
 }
 
@@ -106,6 +107,7 @@ pub struct UpdateUserRequest {
     pub gender: Option<i16>,
     pub dept_id: Option<i64>,
     pub role_ids: Option<Vec<i64>>,
+    pub post_ids: Option<Vec<i64>>,
     pub remark: Option<String>,
 }
 

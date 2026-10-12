@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-
 const route = useRoute()
 const router = useRouter()
-
 const featureKey = computed(() => String(route.meta.featureKey ?? route.params.feature ?? 'default'))
 const implementedRouteMap: Record<string, string> = {
   users: '/system/user',
   roles: '/system/role',
+  posts: '/system/post',
 }
 const featureContent = computed(() => {
   const contentMap: Record<string, { title: string, description: string, phase: string, nextStep: string }> = {
@@ -44,9 +43,9 @@ const featureContent = computed(() => {
     },
     posts: {
       title: '岗位管理',
-      description: '这里会维护岗位定义、排序和启停状态，为用户归属和组织协同提供基础能力。',
-      phase: '岗位模块待接入',
-      nextStep: '建议在部门管理之后继续补齐岗位列表与编辑能力。',
+      description: '岗位管理真实页面已经接入列表、详情、创建、编辑、启停与删除保护能力，这个占位入口仅保留作旧路径兼容。',
+      phase: '真实页面已接入',
+      nextStep: '建议直接跳转到新的 /system/post 页面继续调试。',
     },
     dictionaries: {
       title: '字典管理',
@@ -103,11 +102,9 @@ const featureContent = computed(() => {
       nextStep: '后续会根据迭代优先级逐步替换为真实页面。',
     },
   }
-
   return contentMap[featureKey.value] ?? contentMap.default
 })
 </script>
-
 <template>
   <section class="construction-view">
     <el-card
@@ -119,7 +116,6 @@ const featureContent = computed(() => {
         <h1>{{ featureContent.title }}</h1>
         <p>{{ featureContent.description }}</p>
       </div>
-
       <div class="construction-view__hero-actions">
         <button
           v-if="implementedRouteMap[featureKey]"
@@ -145,7 +141,6 @@ const featureContent = computed(() => {
         </button>
       </div>
     </el-card>
-
     <div class="construction-view__grid">
       <el-card
         class="construction-view__card"
@@ -157,7 +152,6 @@ const featureContent = computed(() => {
             <span>模块建设状态</span>
           </div>
         </template>
-
         <div class="construction-view__block">
           <article class="construction-view__item">
             <span>状态</span>
@@ -169,7 +163,6 @@ const featureContent = computed(() => {
           </article>
         </div>
       </el-card>
-
       <el-card
         class="construction-view__card"
         shadow="never"
@@ -180,7 +173,6 @@ const featureContent = computed(() => {
             <span>进入真实页面前</span>
           </div>
         </template>
-
         <div class="construction-view__checklist">
           <article>先稳定菜单、认证和路由主链路，再进入业务 CRUD 页面开发。</article>
           <article>优先确定接口契约、搜索条件和列表字段，避免页面返工。</article>
@@ -190,13 +182,11 @@ const featureContent = computed(() => {
     </div>
   </section>
 </template>
-
 <style scoped>
 .construction-view {
   display: grid;
   gap: 14px;
 }
-
 .construction-view__hero,
 .construction-view__card {
   border: 1px solid var(--app-border);
@@ -204,17 +194,14 @@ const featureContent = computed(() => {
   background: var(--app-surface-strong);
   box-shadow: var(--app-shadow);
 }
-
 .construction-view__hero {
   display: grid;
   gap: 18px;
 }
-
 .construction-view__hero-copy {
   display: grid;
   gap: 8px;
 }
-
 .construction-view__eyebrow {
   color: var(--app-primary);
   font-size: 12px;

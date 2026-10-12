@@ -56,7 +56,7 @@ export function buildMockMenuTree(): AppMenuItem[] {
           path: '/system/dept',
           icon: 'credit-card',
           permission: 'system:dept:list',
-          description: '部门管理页建设中。',
+          description: '部门管理页已接入真实组织树与维护能力。',
         },
         {
           id: 'posts',
